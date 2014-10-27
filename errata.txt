@@ -1,0 +1,37 @@
+No fim da página 3, onde está 
+
+•psr-remove-atribuicao! psr x variavel x valor --> {}
+
+ 
+
+Deverá estar
+
+•psr-remove-atribuicao! psr x variavel --> {}
+
+ 
+
+Notas adicionais em relação à consistência.
+
+A consistência referida nas funções psr-consistente-p,
+psr-variavel-consistente-p, psr-atribuicao-consistente-p, e
+psr-atribuicoes-consistentes-arco, diz respeito apenas à consistência directa
+entre atribuições já existentes, sendo diferente do conceito formal de
+consistência de nós, arco, e caminho dado nas aulas teóricas. Na consistência
+entre atribuições estamos apenas interessados em verificar que não existem
+conflictos nas atribuições, ou por outras palavras, que as atribuições
+existentes verificam todas as restrições. A consistência mais formal (tal como
+dada nas aulas teóricas), que envolve a verificação de todos os valores
+possíveis do domínio, será implementada pelos algoritmos MAC e AC-3 a
+desenvolver na 2.ª fase do projecto.
+
+Falta também mencionar que uma restrição é considerada verificada até provado o
+contrário. Ou seja, se ao testar uma restrição x>y existir valor definido para
+x, mas não existir valor definido para y, é considerada  verificada, pois ainda
+não é possível testá-la definitivamente enquanto y não estiver atribuído.
+
+As funções do tipo psr que testam consistência de atribuições, têm que testar
+as restrições com uma ordem que é consistente com a lista de restrições
+recebida quando o psr é criado. Por exemplo, se inicialmente o psr receber uma
+lista com (R1 R2 R3) e precisar de testar R1 e R3 para determinar consistência
+de atribuições, tem que o fazer por essa ordem e não R3 seguido de R1.
+Obviamente, se R1 não for verificada, já não é preciso testar R3.
