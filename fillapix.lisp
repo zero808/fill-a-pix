@@ -28,26 +28,40 @@
   (second restricao))
 
 ; Tipo PSR
-
-;e mais facil usar uma estrutura para aceder facilmente aos campos
-;em vez de andar a passar argumentos e consoante o argumento devolver
-;um certo campo
-(defstruct psr
-  ;variaveis com valores atribuidos
-  (atribuidas nil)
-  ;variaveis que ainda nao tem valores atribuidos
-  (nao-atribuidas nil)
-  ;lista de todas as variaveis do problema
-  ;NOTE: Isto nao e redundante?
-  (variaveis nil)
-  ;os dominios de cada variavel
-  (dominios nil)
-  ;as restricoes do problema
-  (restricoes nil))
-
+(defun preenche-ht (lst-vars)
+  (let ((ht (make-hash-table)))
+    (dotimes (l (length lst-vars) ht)
+      (nth ))))
+(defun preenche-hy (lst-vars)
+  (labels ((f0 (n) (if (null lst-vars) nil (f1 lst))))
 ; lista variaveis x lista dominios x lista restricoes -> PSR
 (defun cria-psr (lst-vars lst-dominios lst-restri)
-  ; (let ((atribuidas nil) ;variaveis com valores atribuidos
-  ;       (nao-atribuidas nil)) ;variaveis que ainda nao tem valores atribuidos
-  (let (psr (make-psr :variaveis lst-vars :dominios lst-dominios :restricoes lst-restri)))
-    ;continuamos a ter que passar o psr de alguma maneira...))
+  (let ((atribuidas nil) ;variaveis com valores atribuidos
+        (nao-atribuidas nil) ;variaveis que ainda nao tem valores atribuidos
+        ;lista de todas as variaveis do problema
+        ;NOTE: Isto nao e redundante?
+        (variaveis lst-vars)
+        ;os dominios de cada variavel
+        (dominios lst-dominios)
+        ;as restricoes do problema
+        (restricoes lst-restri)
+        (valores ()))
+    (lambda (x)
+      (case x
+        (a atribuidas)
+        (na nao-atribuidas)
+        (var variaveis)
+        (dom dominios)
+        (res restricoes)))))
+
+(defun psr-atribuicoes (psr)
+  (funcall psr 'a))
+
+(defun psr-variaveis-todas (psr)
+  (funcall psr 'var))
+
+(defun psr-variaveis-nao-atribuidas (psr)
+  (funcall psr 'na))
+
+(defun psr-variavel-valor (psr)
+  (funcall psr 'na))
