@@ -29,11 +29,15 @@
 
 ; Tipo PSR
 (defun preenche-ht (lst-vars)
-  (let ((ht (make-hash-table)))
-    (dotimes (l (length lst-vars) ht)
-      (nth ))))
-(defun preenche-hy (lst-vars)
-  (labels ((f0 (n) (if (null lst-vars) nil (f1 lst))))
+  ;ht e a hashtable
+  (let ((ht (make-hash-table))
+        ;o i e o indice em que a variavel aparece na lista
+        (i 0))
+    (dolist (l lst-vars)
+      ;inicializa-se a nil pois nao lhe esta atribuido nenhum valor
+     (setf (gethash l ht) (cons i nil)))
+    ht))
+
 ; lista variaveis x lista dominios x lista restricoes -> PSR
 (defun cria-psr (lst-vars lst-dominios lst-restri)
   (let ((atribuidas nil) ;variaveis com valores atribuidos
@@ -45,14 +49,15 @@
         (dominios lst-dominios)
         ;as restricoes do problema
         (restricoes lst-restri)
-        (valores ()))
+        (valores (preenche-ht lst-vars)))
     (lambda (x)
       (case x
         (a atribuidas)
         (na nao-atribuidas)
         (var variaveis)
         (dom dominios)
-        (res restricoes)))))
+        (res restricoes)
+        (val valores)))))
 
 (defun psr-atribuicoes (psr)
   (funcall psr 'a))
