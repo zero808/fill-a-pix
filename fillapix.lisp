@@ -30,32 +30,31 @@
 ; Tipo PSR
 
 ;funcoes auxiliares
-(defun preenche-ht-vars (lst-vars)
+(defun preenche-ht-vars (vals lst-vars)
   ;ht e a hashtable
-  (let ((ht (make-hash-table))
+;  (let ((ht (make-hash-table))
+(let (
         ;o i e o indice em que a variavel aparece na lista
         (i 0))
     (dolist (l lst-vars)
       ;inicializa-se a nil pois nao lhe esta atribuido nenhum valor
       ;o "i" e a posicao em que a variavel aparece na lista
       ;para caso seja preciso aceder ao dominio dessa variavel
-     (setf (gethash l ht) (cons i nil))
-     (incf i))
-    ht))
+     (setf (gethash l vals) (cons i nil))
+     (incf i))))
 
-(defun preenche-ht-rede (lst-restri)
-; constraints.add(constraint);
-;                for (Variable var : constraint.getScope())
-;                        cnet.get(var).add(constraint);
-    (let ((ht (make-hash-table))
+(defun preenche-ht-rede (rede lst-restri)
+;    (let ((ht (make-hash-table))
+    (let (
           ;the pointer is used to avoid calling gethash twice
           (pointer))
           (dolist (lr lst-restri)
             (dolist (lv lr)
-              (setf pointer (gethash lv ht))
+              (setf pointer (gethash lv rede))
               (setf pointer (cons lr pointer))))
-          (loop for el being the hash-keys of ht using (value)
-               (setf (gethash el ht) (reverse value)))))
+            (flet ((f0 (key value) (setf (gethash key rede)(reverse value))))
+                (maphash #'f0 rede))))
+
 
 
 ; lista variaveis x lista dominios x lista restricoes -> PSR
@@ -68,21 +67,27 @@
         ;os dominios de cada variavel
         (dominios lst-dominios)
         ;as restricoes do problema
-        (restricoes lst-restri)
+        ;;(restricoes lst-restri)
         ;valores de cada variavel
-        (valores (preenche-ht-vars lst-vars))
+        ;(valores (preenche-ht-vars valores lst-vars))
+        (valores (make-hash-table))
         ;rede de restricoes
-        (rede (preenche-ht-rede lst-restri)))
+        ;(rede (preenche-ht-rede rede lst-restri)))
+        (rede (make-hash-table)))
+    (progn (preenche-ht-vars valores lst-vars)
+           (preenche-ht-rede rede lst-restri))
     (lambda (x &optional var val)
       (case x
         (a atribuidas)
         (na nao-atribuidas)
         (var variaveis)
-        (dom-i (car (gethash var valores)))
+        ;(dom-i (car (gethash var valores)))
+        (dom-i (gethash var valores))
         (dom dominios)
         (res-v (gethash var rede))
         (val (cdr (gethash var valores)))
-        (var-val (setf (gethash var valores) (cons (car (gethash var valores) val))))
+        (var-val (setf (gethash var valores) (cons (car (gethash var valores)) val)))
+        (xpto valores)
         ))))
 
 (defun psr-atribuicoes (psr)
@@ -110,3 +115,7 @@
 
 (defun psr-remove-atribuicao! (psr var)
   (funcall psr 'var-val var nil))
+
+(defun cenas (psr)
+  (funcall psr 'xpto))
+(load "exemplos.fas")
