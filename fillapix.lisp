@@ -31,31 +31,23 @@
 
 ;funcoes auxiliares
 (defun preenche-ht-vars (vals lst-vars)
-  ;ht e a hashtable
-;  (let ((ht (make-hash-table))
-(let (
-        ;o i e o indice em que a variavel aparece na lista
-        (i 0))
+  (let ((i 0)) ;o i e o indice em que a variavel aparece na lista
     (dolist (l lst-vars)
       ;inicializa-se a nil pois nao lhe esta atribuido nenhum valor
       ;o "i" e a posicao em que a variavel aparece na lista
       ;para caso seja preciso aceder ao dominio dessa variavel
-     (setf (gethash l vals) (cons i nil))
-     (incf i))))
+      (setf (gethash l vals) (cons i nil))
+      (incf i))))
 
 (defun preenche-ht-rede (rede lst-restri)
-;    (let ((ht (make-hash-table))
-    (let (
-          ;the pointer is used to avoid calling gethash twice
-          (pointer))
-          (dolist (lr lst-restri)
-            (dolist (lv lr)
-              (setf pointer (gethash lv rede))
-              (setf pointer (cons lr pointer))))
-            (flet ((f0 (key value) (setf (gethash key rede)(reverse value))))
-                (maphash #'f0 rede))))
-
-
+  ;para cada restricao da lista de restricoes
+  (dolist (lr lst-restri)
+    ;para cada variavel da restricao
+    (dolist (lv (restricao-variaveis lr))
+      (setf (gethash lv rede) (cons lr (gethash lv rede)))))
+;  (flet ((f0 (key value) (setf (gethash key rede)(reverse value))))
+  (flet ((f0 (key value) key (nreverse value)))
+      (maphash #'f0 rede)))
 
 ; lista variaveis x lista dominios x lista restricoes -> PSR
 (defun cria-psr (lst-vars lst-dominios lst-restri)
@@ -69,11 +61,12 @@
         ;as restricoes do problema
         ;;(restricoes lst-restri)
         ;valores de cada variavel
-        ;(valores (preenche-ht-vars valores lst-vars))
-        (valores (make-hash-table))
+        (valores (make-hash-table :test 'equal))
         ;rede de restricoes
-        ;(rede (preenche-ht-rede rede lst-restri)))
-        (rede (make-hash-table)))
+        (rede (make-hash-table :test 'equal))
+        ;flag para comparacoes
+        (flag t)
+        )
     (progn (preenche-ht-vars valores lst-vars)
            (preenche-ht-rede rede lst-restri))
     (lambda (x &optional var val)
@@ -81,13 +74,19 @@
         (a atribuidas)
         (na nao-atribuidas)
         (var variaveis)
-        ;(dom-i (car (gethash var valores)))
-        (dom-i (gethash var valores))
+        ;retorna o index em que a variavel se encontra
+        (dom-i (car (gethash var valores)))
         (dom dominios)
-        (res-v (gethash var rede))
+        ;devolve a lista de de restricoes que envolvem a variavel
+        ;o car e o multiple-value-list e para evitar erros do gethash
+        ;retornar dois valores
+        (res-v (car (multiple-value-list (gethash var rede))))
+        ;retorna o valor atribuido a variavel
         (val (cdr (gethash var valores)))
+        ;troca o valor da variavel
         (var-val (setf (gethash var valores) (cons (car (gethash var valores)) val)))
-        (xpto valores)
+        ;verifica se algum valor de uma variavel esta a nil
+        (comp (progn (maphash #'(lambda (k v) k (setf flag (and (notany #'null (cdr v) flag)))) valores) flag))
         ))))
 
 (defun psr-atribuicoes (psr)
@@ -116,6 +115,10 @@
 (defun psr-remove-atribuicao! (psr var)
   (funcall psr 'var-val var nil))
 
-(defun cenas (psr)
-  (funcall psr 'xpto))
-(load "exemplos.fas")
+(defun psr-altera-dominio! (psr var dom)
+  (let ((index (funcall psr 'dom-i var)))
+    (setf (nth index (funcall psr 'dom)) dom)))
+
+(defun psr-completo-p (psr)
+  (funcall psr 'comp))
+;(load "exemplos.fas")
