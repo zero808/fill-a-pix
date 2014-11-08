@@ -2,9 +2,9 @@
 ; Alameda
 ; Grupo 42
 ;
-; Duarte Barreira   nº 64752
-; Ricardo Coelho    nº 64831
-; Pedro Baptista    nº 67056
+; Duarte Barreira   n 64752
+; Ricardo Coelho    n 64831
+; Pedro Baptista    n 67056
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
@@ -14,7 +14,7 @@
 ; ex: a lista (0 1) representa um dominio com 2 valores possiveis para
 ; essa variavel.
 
-; cria-restricao: lista de variáveis x predicado -> restricao
+; cria-restricao: lista de variaveis x predicado -> restricao
 (defun cria-restricao (lst-var pred)
   (list lst-var pred))
 
@@ -45,9 +45,36 @@
     ;para cada variavel da restricao
     (dolist (lv (restricao-variaveis lr))
       (setf (gethash lv rede) (cons lr (gethash lv rede)))))
-;  (flet ((f0 (key value) (setf (gethash key rede)(reverse value))))
   (flet ((f0 (key value) key (nreverse value)))
       (maphash #'f0 rede)))
+
+(defun busca-valores (valores lista-vars)
+  (let ((l nil))
+  (dolist (lv lista-vars)
+    (setf l (cons (second (gethash lv valores)) l)))
+  (nreverse l)))
+
+(defun val-nil (l)
+  (let ((res nil))
+    (dolist (valor l) res
+      (if (equal valor nil)
+        (progn (setf res t)
+            (return))))))
+
+(defun consistente (valores restricoes)
+  (let ((counter 0)
+        (flag t)
+        (l nil))
+    (dolist (lr restricoes) (values flag counter)
+      (if flag
+        (progn
+          (setf l (busca-valores valores (restricao-variaveis lr)))
+          (if (not (val-nil l))
+            (setf flag (and (mapcar (restricao-funcao-validacao lr)
+                                    (busca-valores valores (restricao-variaveis lr)))
+                            flag)))
+          (incf counter))
+        (return)))))
 
 ; lista variaveis x lista dominios x lista restricoes -> PSR
 (defun cria-psr (lst-vars lst-dominios lst-restri)
@@ -59,7 +86,7 @@
         ;os dominios de cada variavel
         (dominios lst-dominios)
         ;as restricoes do problema
-        ;;(restricoes lst-restri)
+        (restricoes lst-restri)
         ;valores de cada variavel
         (valores (make-hash-table :test 'equal))
         ;rede de restricoes
@@ -87,6 +114,7 @@
         (var-val (setf (gethash var valores) (cons (car (gethash var valores)) val)))
         ;verifica se algum valor de uma variavel esta a nil
         (comp (progn (maphash #'(lambda (k v) k (setf flag (and (notany #'null (cdr v) flag)))) valores) flag))
+        (consis (consistente valores restricoes))
         ))))
 
 (defun psr-atribuicoes (psr)
@@ -121,4 +149,8 @@
 
 (defun psr-completo-p (psr)
   (funcall psr 'comp))
-;(load "exemplos.fas")
+
+(defun psr-consistente-p (psr)
+  (funcall psr 'consis))
+
+(load "exemplos.fas")
