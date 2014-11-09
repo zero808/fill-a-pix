@@ -54,13 +54,39 @@
     (setf l (cons (second (gethash lv valores)) l)))
   (nreverse l)))
 
+;doesn't work
 (defun val-nil (l)
   (let ((res nil))
     (dolist (valor l) res
       (if (equal valor nil)
-        (progn (setf res t)
-            (return))))))
+			(progn (setf res t)
+				   (return))))))
 
+(defun val-nil2 (l)
+  (do ((i 0 (+ 1 i))
+       (size (length l))
+       (res nil))
+      ((or res (= i size)) res)
+    (if (equal (nth i l) nil)
+        (setf res t))))
+
+(defun consistente2 (valores restricoes)
+  (do ((counter 0 (+ 1 counter))
+       (flag t)
+       (l nil)
+       (i 0 (+ 1 i)) ;; provavelmente nao necessario, igual ao counter
+       (restri-i nil)
+       (size (length restricoes)))
+     ((= size i) (values flag counter)) ;; condicao de paragem e resultado devolvido
+   (progn
+     (setf restri-i (nth i restricoes))
+     (setf l (busca-valores valores (restricao-variaveis restri-i)))
+     (if (not (val-nil2 l))
+         (setf flag (and (mapcar (restricao-funcao-validacao restri-i)
+                                 (busca-valores valores (restricao-variaveis restri-i)))
+                          flag))))))   
+
+;doesn't work
 (defun consistente (valores restricoes)
   (let ((counter 0)
         (flag t)
@@ -69,7 +95,7 @@
       (if flag
         (progn
           (setf l (busca-valores valores (restricao-variaveis lr)))
-          (if (not (val-nil l))
+          (if (not (val-nil2 l))
             (setf flag (and (mapcar (restricao-funcao-validacao lr)
                                     (busca-valores valores (restricao-variaveis lr)))
                             flag)))
@@ -114,7 +140,7 @@
         (var-val (setf (gethash var valores) (cons (car (gethash var valores)) val)))
         ;verifica se algum valor de uma variavel esta a nil
         (comp (progn (maphash #'(lambda (k v) k (setf flag (and (notany #'null (cdr v) flag)))) valores) flag))
-        (consis (consistente valores restricoes))
+        (consis (consistente2 valores restricoes))
         ))))
 
 (defun psr-atribuicoes (psr)
