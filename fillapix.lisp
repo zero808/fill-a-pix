@@ -22,7 +22,7 @@
 ; restricao-variaveis: restricao -> lista de variaveis
 (defun restricao-variaveis (restricao)
   (first restricao))
-;
+
 ; restricao-funcao-validacao: restricao -> predicado
 (defun restricao-funcao-validacao (restricao)
   (second restricao))
@@ -50,24 +50,24 @@
 
 (defun busca-valores (valores lista-vars)
   (let ((l nil))
-  (dolist (lv lista-vars)
-    (setf l (cons (second (gethash lv valores)) l)))
-  (nreverse l)))
+    (dolist (lv lista-vars)
+      (setf l (cons (second (gethash lv valores)) l)))
+    (nreverse l)))
 
 ;doesn't work
 (defun val-nil (l)
   (let ((res nil))
     (dolist (valor l) res
       (if (equal valor nil)
-			(progn (setf res t)
-				   (return))))))
+        (progn (setf res t)
+               (return))))))
 
 (defun val-nil2 (l)
   (do ((i 0 (+ 1 i))
        (size (length l))
        (res nil))
       ((or res (= i size)) res)
-    (if (equal (nth i l) nil)
+    (if (null (nth i l))
         (setf res t))))
 
 (defun consistente2 (valores restricoes)
@@ -84,7 +84,7 @@
      (if (not (val-nil2 l))
          (setf flag (and (mapcar (restricao-funcao-validacao restri-i)
                                  (busca-valores valores (restricao-variaveis restri-i)))
-                          flag))))))   
+                          flag))))))
 
 ;doesn't work
 (defun consistente (valores restricoes)
@@ -122,25 +122,28 @@
         )
     (progn (preenche-ht-vars valores lst-vars)
            (preenche-ht-rede rede lst-restri))
-    (lambda (x &optional var val)
+    (lambda (x &optional var1 val1 var2 val2)
       (case x
         (a atribuidas)
         (na nao-atribuidas)
         (var variaveis)
         ;retorna o index em que a variavel se encontra
-        (dom-i (car (gethash var valores)))
+        (dom-i (car (gethash var1 valores)))
         (dom dominios)
         ;devolve a lista de de restricoes que envolvem a variavel
         ;o car e o multiple-value-list e para evitar erros do gethash
         ;retornar dois valores
-        (res-v (car (multiple-value-list (gethash var rede))))
+        (res-v (car (multiple-value-list (gethash var1 rede))))
         ;retorna o valor atribuido a variavel
-        (val (cdr (gethash var valores)))
+        (val (cdr (gethash var1 valores)))
         ;troca o valor da variavel
-        (var-val (setf (gethash var valores) (cons (car (gethash var valores)) val)))
+        (var-val (setf (gethash var1 valores) (cons (car (gethash var1 valores)) val1)))
         ;verifica se algum valor de uma variavel esta a nil
         (comp (progn (maphash #'(lambda (k v) k (setf flag (and (notany #'null (cdr v) flag)))) valores) flag))
         (consis (consistente2 valores restricoes))
+        (vcp (values t 0));yeah fix this...
+        (pacp (values t 0))
+        (pacap (values t 0))
         ))))
 
 (defun psr-atribuicoes (psr)
@@ -179,4 +182,26 @@
 (defun psr-consistente-p (psr)
   (funcall psr 'consis))
 
-(load "exemplos.fas")
+(defun psr-variavel-consistente-p (psr variavel)
+  (funcall psr 'vcp variavel))
+
+(defun psr-atribuicao-consistente-p (psr variavel valor)
+  (funcall psr 'pacp variavel valor))
+
+(defun psr-atribuicoes-consistentes-arco-p (psr var1 val1 var2 val2)
+  (funcall psr 'pacap var1 val1 var2 val2))
+
+;parte 2.2.1
+(defun fill-a-pix->psr (arr))
+
+(defun psr->fill-a-pix (psr linhas colunas))
+
+;parte 2.2.2
+(defun procura-retrocesso-simples (psr))
+
+(defun resolve-simples (arr))
+
+
+;this way it works in whatever implementation
+#+clisp (load "exemplos.fas")
+#+sbcl (load "exemplos.fasl")
