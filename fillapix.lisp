@@ -54,15 +54,7 @@
       (setf l (cons (second (gethash lv valores)) l)))
     (nreverse l)))
 
-;doesn't work
 (defun val-nil (l)
-  (let ((res nil))
-    (dolist (valor l) res
-      (if (equal valor nil)
-        (progn (setf res t)
-               (return))))))
-
-(defun val-nil2 (l)
   (do ((i 0 (+ 1 i))
        (size (length l))
        (res nil))
@@ -70,7 +62,7 @@
     (if (null (nth i l))
         (setf res t))))
 
-(defun consistente2 (valores restricoes)
+(defun consistente (valores restricoes)
   (do ((counter 0 (+ 1 counter))
        (flag t)
        (l nil)
@@ -81,34 +73,54 @@
    (progn
      (setf restri-i (nth i restricoes))
      (setf l (busca-valores valores (restricao-variaveis restri-i)))
-     (if (not (val-nil2 l))
+     (if (not (val-nil l))
          (setf flag (and (mapcar (restricao-funcao-validacao restri-i)
                                  (busca-valores valores (restricao-variaveis restri-i)))
                           flag))))))
 
-;doesn't work
-(defun consistente (valores restricoes)
-  (let ((counter 0)
-        (flag t)
-        (l nil))
-    (dolist (lr restricoes) (values flag counter)
-      (if flag
-        (progn
-          (setf l (busca-valores valores (restricao-variaveis lr)))
-          (if (not (val-nil2 l))
-            (setf flag (and (mapcar (restricao-funcao-validacao lr)
-                                    (busca-valores valores (restricao-variaveis lr)))
-                            flag)))
-          (incf counter))
-        (return)))))
+(defun corrige-valores (valores atribuidas nao-atribuidas var val)
+  (setf (gethash var valores) (cons (car (gethash var valores)) val))
+  (if (null val)
+    (progn
+      (delete var atribuidas :test 'equal)
+      (append nao-atribuidas (list var)))
+    (progn
+      (delete var nao-atribuidas :test 'equal)
+      (if (null (find var atribuidas :test 'equal))
+        (append atribuidas (list var))))))
+
+(defun testa-pacp (valores var novo restricoes)
+  (let ((antigo (cdr (gethash var valores)))
+        (retorno nil))
+    ;alteramos isto manualmente para não modificar as listas de atribuidos e nao
+    ;atribuidos
+    (setf (cdr (gethash var valores)) novo)
+    (setf retorno (multiple-value-list (consistente valores restricoes)))
+    (setf (cdr (gethash var valores)) antigo)
+    (values-list retorno)))
+
+        ;(pacap (testa-pacap var1 val1 var2 val2 arg))
+
+(defun testa-pacap (valores var1 val1 var2 val2 restricoes)
+  (let ((antigo1 (cdr (gethash var1 valores)))
+        (antigo2 (cdr (gethash var2 valores)))
+        (retorno nil))
+    ;alteramos isto manualmente para não modificar as listas de atribuidos e nao
+    ;atribuidos
+    (setf (cdr (gethash var1 valores)) val1)
+    (setf (cdr (gethash var2 valores)) val2)
+    (setf retorno (multiple-value-list (consistente valores restricoes)))
+    (setf (cdr (gethash var1 valores)) antigo1)
+    (setf (cdr (gethash var2 valores)) antigo2)
+    (values-list retorno)))
 
 ; lista variaveis x lista dominios x lista restricoes -> PSR
 (defun cria-psr (lst-vars lst-dominios lst-restri)
   (let ((atribuidas nil) ;variaveis com valores atribuidos
-        (nao-atribuidas nil) ;variaveis que ainda nao tem valores atribuidos
+        (nao-atribuidas (copy-list lst-vars)) ;variaveis que ainda nao tem valores atribuidos
         ;lista de todas as variaveis do problema
         ;NOTE: Isto nao e redundante?
-        (variaveis lst-vars)
+        ;(variaveis lst-vars)
         ;os dominios de cada variavel
         (dominios lst-dominios)
         ;as restricoes do problema
@@ -122,11 +134,11 @@
         )
     (progn (preenche-ht-vars valores lst-vars)
            (preenche-ht-rede rede lst-restri))
-    (lambda (x &optional var1 val1 var2 val2)
+    (lambda (x &optional var1 val1 var2 val2 arg)
       (case x
         (a atribuidas)
         (na nao-atribuidas)
-        (var variaveis)
+        (var lst-vars)
         ;retorna o index em que a variavel se encontra
         (dom-i (car (gethash var1 valores)))
         (dom dominios)
@@ -137,13 +149,15 @@
         ;retorna o valor atribuido a variavel
         (val (cdr (gethash var1 valores)))
         ;troca o valor da variavel
-        (var-val (setf (gethash var1 valores) (cons (car (gethash var1 valores)) val1)))
+        ;(var-val (setf (gethash var1 valores) (cons (car (gethash var1 valores)) val1)))
+        (var-val (corrige-valores valores atribuidas nao-atribuidas var1 val1))
         ;verifica se algum valor de uma variavel esta a nil
         (comp (progn (maphash #'(lambda (k v) k (setf flag (and (notany #'null (cdr v) flag)))) valores) flag))
-        (consis (consistente2 valores restricoes))
-        (vcp (values t 0));yeah fix this...
-        (pacp (values t 0))
-        (pacap (values t 0))
+        (consis (consistente valores restricoes))
+;        (vcp (values t 0));yeah fix this...
+        (vcp (consistente valores var1)); var1 in this case is not a variable
+        (pacp (testa-pacp valores var1 val1 var2));var2 aqui sao as restricoes da variavel
+        (pacap (testa-pacap valores var1 val1 var2 val2 arg))
         ))))
 
 (defun psr-atribuicoes (psr)
@@ -183,25 +197,30 @@
   (funcall psr 'consis))
 
 (defun psr-variavel-consistente-p (psr variavel)
-  (funcall psr 'vcp variavel))
+  (let ((res (psr-variavel-restricoes psr variavel)))
+    (funcall psr 'vcp res)))
 
 (defun psr-atribuicao-consistente-p (psr variavel valor)
-  (funcall psr 'pacp variavel valor))
+  (let ((res (psr-variavel-restricoes psr variavel)))
+    (funcall psr 'pacp variavel valor res)))
 
 (defun psr-atribuicoes-consistentes-arco-p (psr var1 val1 var2 val2)
-  (funcall psr 'pacap var1 val1 var2 val2))
+  (funcall psr 'pacap var1 val1 var2 val2 (remove-duplicates
+                                            (append (psr-variavel-restricoes psr var1)
+                                                    (psr-variavel-restricoes psr var2))
+                                            :test 'eq)))
 
 ;parte 2.2.1
-(defun fill-a-pix->psr (arr))
+;(defun fill-a-pix->psr (arr))
 
-(defun psr->fill-a-pix (psr linhas colunas))
+;(defun psr->fill-a-pix (psr linhas colunas))
 
 ;parte 2.2.2
-(defun procura-retrocesso-simples (psr))
+;(defun procura-retrocesso-simples (psr))
 
-(defun resolve-simples (arr))
+;(defun resolve-simples (arr))
 
 
 ;this way it works in whatever implementation
-#+clisp (load "exemplos.fas")
+;#+clisp (load "exemplos.fas")
 #+sbcl (load "exemplos.fasl")
