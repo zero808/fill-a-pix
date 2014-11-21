@@ -31,6 +31,8 @@
 ; Tipo PSR
 
 ;funcoes auxiliares
+;K - variavel
+;V - (posicao na lista de dominios . valor actual da variavel)
 (defun preenche-ht-vars (vals lst-vars)
   (let ((i 0)) ;o i e o indice em que a variavel aparece na lista
     (dolist (l lst-vars)
@@ -40,6 +42,8 @@
       (setf (gethash l vals) (cons i nil))
       (incf i))))
 
+;K - variavel
+;V - lista de variaveis que participam nas restricoes
 (defun preenche-ht-rede (rede lst-restri)
   ;para cada restricao da lista de restricoes
   (dolist (lr lst-restri)
@@ -49,64 +53,81 @@
   (flet ((f0 (key value) key (nreverse value)))
       (maphash #'f0 rede)))
 
-(defun busca-valores (valores lista-vars)
-  (let ((l nil))
-    (dolist (lv lista-vars)
-      ;(setf l (cons (second (gethash lv valores)) l)))
-      (setf l (cons (cdr (gethash lv valores)) l)))
-    (nreverse l)))
+;(defun busca-valores (valores lista-vars)
+;  (let ((l nil))
+;    (dolist (lv lista-vars)
+;      ;(setf l (cons (second (gethash lv valores)) l)))
+;      (setf l (cons (cdr (gethash lv valores)) l)))
+;    (nreverse l)))
 
-(defun val-nil (l)
-  (do ((i 0 (+ 1 i))
-       (size (length l))
-       (res nil))
-      ((or res (= i size)) res)
-    (if (null (nth i l))
-        (setf res t))))
+;(defun consistente (valores restricoes psr)
+;  (do ((counter 0 (+ 1 counter))
+;       (flag t)
+;       (l nil)
+;       (i 0 (+ 1 i)) ;; provavelmente nao necessario, igual ao counter
+;       (restri-i nil)
+;       (size (length restricoes)))
+;     ((= size i) (values flag counter)) ;; condicao de paragem e resultado devolvido
+;   (progn
+;     (setf restri-i (nth i restricoes))
+;     (setf l (busca-valores valores (restricao-variaveis restri-i)))
+;     (if (not (val-nil l))
+;         (setf flag (and (mapcar (restricao-funcao-validacao restri-i)
+;                                 ;(busca-valores valores (restricao-variaveis restri-i)))
+;                                 psr)
+;                          flag))))))
 
-(defun consistente (valores restricoes psr)
-  (do ((counter 0 (+ 1 counter))
-       (flag t)
-       (l nil)
-       (i 0 (+ 1 i)) ;; provavelmente nao necessario, igual ao counter
-       (restri-i nil)
+(defun consistente (restricoes psr)
+  (do ((counter 0 (1+ counter))
+       (result t)
+       (element nil)
        (size (length restricoes)))
-     ((= size i) (values flag counter)) ;; condicao de paragem e resultado devolvido
-   (progn
-     (setf restri-i (nth i restricoes))
-     (setf l (busca-valores valores (restricao-variaveis restri-i)))
-     (if (not (val-nil l))
-         (setf flag (and (mapcar (restricao-funcao-validacao restri-i)
-                                 ;(busca-valores valores (restricao-variaveis restri-i)))
-                                 psr)
-                          flag))))))
+    ((= size counter) (values result counter))
+    (progn
+      (setf element (restricao-funcao-validacao (nth counter restricoes)))
+      (setf result (and result (funcall element psr))))))
 
-(defun corrige-valores (valores atribuidas nao-atribuidas var val)
-  (setf (gethash var valores) (cons (car (gethash var valores)) val))
-  (if (null val)
-    ;queremos remover
-    (values
-      (remove var atribuidas :test 'equal)
-      (if (null (find var nao-atribuidas :test 'equal))
-        (append nao-atribuidas (list var))
-        nao-atribuidas))
-    ;queremos alterar o valor
-    (values
-      ;para testar se e a primeira vez que fazemos uma atribuicao
-      ;ou se estamos a alterar um valor existente
-      (if (null (find var atribuidas :test 'equal))
-        (append atribuidas (list var))
-        atribuidas)
-      (remove var nao-atribuidas :test 'equal))))
+(defun adiciona-valor! (valores atribuidas nao-atribuidas var val)
+  (let ((flag nil))
+    (do ((i 0 (1+ i))
+         (elemento nil)
+         (size (length atribuidas)))
+      ((or flag (= size i)))
+      (progn (setf elemento (nth i atribuidas))
+             (if (equal var (car elemento))
+               (progn
+                 (setf elemento (cons var val))
+                 (setf flag t)))))
+    (if (null flag)
+      (progn
+        (remove var)))))
+(defun remove-valor! (valores atribuidas nao-atribuidas var val))
+;(defun corrige-valores (valores atribuidas nao-atribuidas var val)
+;  (setf (gethash var valores) (cons (car (gethash var valores)) val))
+;  (if (null val)
+;    ;queremos remover
+;    (values
+;      (remove var atribuidas :test 'equal)
+;      (if (null (find var nao-atribuidas :test 'equal))
+;        (append nao-atribuidas (list var))
+;        nao-atribuidas))
+;    ;queremos alterar o valor
+;    (values
+;      ;para testar se e a primeira vez que fazemos uma atribuicao
+;      ;ou se estamos a alterar um valor existente
+;      (if (null (find var atribuidas :test 'equal))
+;        (append atribuidas (list var))
+;        atribuidas)
+;      (remove var nao-atribuidas :test 'equal))))
 
-(defun testa-pacp (valores var novo restricoes psr)
-  (let ((antigo (cdr (gethash var valores)))
+(defun testa-pacp (psr var novo )
+  (let ((oldvalue (psr-variavel-valor psr var))
         (retorno nil))
-    ;alteramos isto manualmente para nao modificar as listas de atribuidos e nao
-    ;atribuidos
-    (setf (cdr (gethash var valores)) novo)
-    (setf retorno (multiple-value-list (consistente valores restricoes psr)))
-    (setf (cdr (gethash var valores)) antigo)
+    (psr-adiciona-atribuicao! psr var novo)
+    (setf retorno (multiple-value-list (psr-variavel-consistente-p psr var)))
+    (if (null oldvalue)
+      (psr-remove-atribuicao! psr var)
+      (psr-adiciona-atribuicao! psr var oldvalue))
     (values-list retorno)))
 
 (defun testa-pacap (valores var1 val1 var2 val2 restricoes psr)
@@ -117,7 +138,7 @@
     ;atribuidos
     (setf (cdr (gethash var1 valores)) val1)
     (setf (cdr (gethash var2 valores)) val2)
-    (setf retorno (multiple-value-list (consistente valores restricoes psr)))
+    (setf retorno (multiple-value-list (consistente restricoes psr)))
     (setf (cdr (gethash var1 valores)) antigo1)
     (setf (cdr (gethash var2 valores)) antigo2)
     (values-list retorno)))
@@ -142,44 +163,43 @@
         )
     (progn (preenche-ht-vars valores lst-vars)
            (preenche-ht-rede rede lst-restri))
-    (lambda (x &optional var1 val1 var2 val2 arg arg2)
-      (case x
-        (a atribuidas)
-        (na nao-atribuidas)
-        (var lst-vars)
+    ;(lambda (x &optional var1 val1 var2 val2 arg arg2)
+    (lambda (psr &optional arg1 arg2 arg3 arg4 arg5 arg6)
+      (case psr
+        (pa atribuidas)
+        (pvna nao-atribuidas)
+        (pvt lst-vars)
         ;retorna o index em que a variavel se encontra
-        (dom-i (car (gethash var1 valores)))
+        (dom-i (car (gethash arg1 valores)))
         (dom dominios)
         ;devolve a lista de de restricoes que envolvem a variavel
         ;o car e o multiple-value-list e para evitar erros do gethash
         ;retornar dois valores
-        (res-v (car (multiple-value-list (gethash var1 rede))))
+        (pvr (car (multiple-value-list (gethash arg1 rede))))
         ;retorna o valor atribuido a variavel
-        (val (cdr (gethash var1 valores)))
+        (pvv (cdr (gethash arg1 valores)))
         ;troca o valor da variavel
-        (var-val (multiple-value-bind (a b) (corrige-valores valores atribuidas nao-atribuidas var1 val1)
+        (paa (multiple-value-bind (a b) (corrige-valores valores atribuidas nao-atribuidas arg1 arg2)
                    (setf atribuidas a) (setf nao-atribuidas b)))
         ;verifica se algum valor de uma variavel esta a nil
-        ;(comp (progn (maphash #'(lambda (k v) k (setf flag (and (notany #'null (cdr v)) flag))) valores) flag))
         (comp (null nao-atribuidas))
-        (consis (consistente valores restricoes var1))
-;        (vcp (values t 0));yeah fix this...
-        (vcp (consistente valores var1 val1)); var1 in this case is not a variable
-        (pacp (testa-pacp valores var1 val1 var2 arg));var2 aqui sao as restricoes da variavel
-        (pacap (testa-pacap valores var1 val1 var2 val2 arg arg2))
+        (consis (consistente restricoes arg1))
+        (pvcp (consistente arg1 arg2))
+        (pacp (testa-pacp arg1 arg2 arg3));var2 aqui sao as restricoes da variavel
+        (pacap (testa-pacap valores arg1 arg2 arg3 arg4 arg5 arg6))
         ))))
 
 (defun psr-atribuicoes (psr)
-  (funcall psr 'a))
+  (funcall psr 'pa))
 
 (defun psr-variaveis-todas (psr)
-  (funcall psr 'var))
+  (funcall psr 'pvt))
 
 (defun psr-variaveis-nao-atribuidas (psr)
-  (funcall psr 'na))
+  (funcall psr 'pvna))
 
 (defun psr-variavel-valor (psr var)
-  (funcall psr 'val var))
+  (funcall psr 'pvv var))
 
 (defun psr-variavel-dominio (psr var)
   (let ((index (funcall psr 'dom-i var)))
@@ -187,13 +207,13 @@
 
 ; psr-variavel-
 (defun psr-variavel-restricoes (psr var)
-  (funcall psr 'res-v var))
+  (funcall psr 'pvr var))
 
 (defun psr-adiciona-atribuicao! (psr var val)
-  (funcall psr 'var-val var val))
+  (funcall psr 'paa var val))
 
 (defun psr-remove-atribuicao! (psr var)
-  (funcall psr 'var-val var nil))
+  (funcall psr 'paa var nil))
 
 (defun psr-altera-dominio! (psr var dom)
   (let ((index (funcall psr 'dom-i var)))
@@ -207,11 +227,12 @@
 
 (defun psr-variavel-consistente-p (psr variavel)
   (let ((res (psr-variavel-restricoes psr variavel)))
-    (funcall psr 'vcp res psr)))
+    (funcall psr 'pvcp res psr)))
 
 (defun psr-atribuicao-consistente-p (psr variavel valor)
-  (let ((res (psr-variavel-restricoes psr variavel)))
-    (funcall psr 'pacp variavel valor res psr)))
+;  (let ((res (psr-variavel-restricoes psr variavel)))
+;    (funcall psr 'pacp variavel valor res psr)))
+    (funcall psr 'pacp psr variavel valor))
 
 (defun psr-atribuicoes-consistentes-arco-p (psr var1 val1 var2 val2)
   (funcall psr 'pacap var1 val1 var2 val2 (remove-duplicates
