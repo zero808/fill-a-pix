@@ -53,30 +53,6 @@
   (flet ((f0 (key value) key (nreverse value)))
       (maphash #'f0 rede)))
 
-;(defun busca-valores (valores lista-vars)
-;  (let ((l nil))
-;    (dolist (lv lista-vars)
-;      ;(setf l (cons (second (gethash lv valores)) l)))
-;      (setf l (cons (cdr (gethash lv valores)) l)))
-;    (nreverse l)))
-
-;(defun consistente (valores restricoes psr)
-;  (do ((counter 0 (+ 1 counter))
-;       (flag t)
-;       (l nil)
-;       (i 0 (+ 1 i)) ;; provavelmente nao necessario, igual ao counter
-;       (restri-i nil)
-;       (size (length restricoes)))
-;     ((= size i) (values flag counter)) ;; condicao de paragem e resultado devolvido
-;   (progn
-;     (setf restri-i (nth i restricoes))
-;     (setf l (busca-valores valores (restricao-variaveis restri-i)))
-;     (if (not (val-nil l))
-;         (setf flag (and (mapcar (restricao-funcao-validacao restri-i)
-;                                 ;(busca-valores valores (restricao-variaveis restri-i)))
-;                                 psr)
-;                          flag))))))
-
 (defun consistente (restricoes psr)
   (do ((counter 0 (1+ counter))
        (result t)
@@ -87,21 +63,43 @@
       (setf element (restricao-funcao-validacao (nth counter restricoes)))
       (setf result (and result (funcall element psr))))))
 
+; (defun adiciona-valor! (valores atribuidas nao-atribuidas var val)
+;   (let ((flag nil))
+;     (do ((i 0 (1+ i))
+;          (elemento nil)
+;          (size (length atribuidas)))
+;       ((or flag (= size i)))
+;       (progn (setf elemento (nth i atribuidas))
+;              (if (equal var (car elemento))
+;                (progn
+;                  (setf elemento (cons var val))
+;                  (setf flag t)))))
+;     (if (null flag)
+;       (progn
+;         (remove var nao-atribuidas)))))
+
+
 (defun adiciona-valor! (valores atribuidas nao-atribuidas var val)
-  (let ((flag nil))
-    (do ((i 0 (1+ i))
-         (elemento nil)
-         (size (length atribuidas)))
-      ((or flag (= size i)))
-      (progn (setf elemento (nth i atribuidas))
-             (if (equal var (car elemento))
-               (progn
-                 (setf elemento (cons var val))
-                 (setf flag t)))))
-    (if (null flag)
-      (progn
-        (remove var)))))
-(defun remove-valor! (valores atribuidas nao-atribuidas var val))
+  ;   se estivermos a adicionar o valor pela primeira vez
+  (if (null (member var atribuidas :test 'equal))
+    (progn
+      ;adiciona a lista de atribuidas
+      (nconc atribuidas (list var))
+      ;e retira das nao atribuidas
+      (setf nao-atribuidas (delete var nao-atribuidas :test 'equal))))
+  ;e poe na hashtable o valor correcto
+  (setf (gethash var valores) (cons (car (gethash var valores)) val)))
+
+(defun remove-valor! (valores atribuidas nao-atribuidas var)
+  ;(remove var atribuidas :test 'equal)
+  (setf atribuidas (delete var atribuidas :test 'equal))
+  (nconc nao-atribuidas (list var))
+  (setf (gethash var valores) (cons (car (gethash var valores)) nil)))
+
+(defun retorna-atribuidas (atribuidas vals)
+  (let ((res nil))
+    (dolist (temp atribuidas (nreverse res)) (push (cons temp (gethash temp vals)) res))))
+;
 ;(defun corrige-valores (valores atribuidas nao-atribuidas var val)
 ;  (setf (gethash var valores) (cons (car (gethash var valores)) val))
 ;  (if (null val)
@@ -166,7 +164,8 @@
     ;(lambda (x &optional var1 val1 var2 val2 arg arg2)
     (lambda (psr &optional arg1 arg2 arg3 arg4 arg5 arg6)
       (case psr
-        (pa atribuidas)
+        ;(pa atribuidas)
+        (pa (retorna-atribuidas atribuidas valores))
         (pvna nao-atribuidas)
         (pvt lst-vars)
         ;retorna o index em que a variavel se encontra
@@ -179,8 +178,10 @@
         ;retorna o valor atribuido a variavel
         (pvv (cdr (gethash arg1 valores)))
         ;troca o valor da variavel
-        (paa (multiple-value-bind (a b) (corrige-valores valores atribuidas nao-atribuidas arg1 arg2)
-                   (setf atribuidas a) (setf nao-atribuidas b)))
+        ; (paa (multiple-value-bind (a b) (corrige-valores valores atribuidas nao-atribuidas arg1 arg2)
+        ;            (setf atribuidas a) (setf nao-atribuidas b)))
+        (paa (adiciona-valor! valores atribuidas nao-atribuidas arg1 arg2))
+        (pra (remove-valor! valores atribuidas nao-atribuidas arg1))
         ;verifica se algum valor de uma variavel esta a nil
         (comp (null nao-atribuidas))
         (consis (consistente restricoes arg1))
@@ -213,7 +214,8 @@
   (funcall psr 'paa var val))
 
 (defun psr-remove-atribuicao! (psr var)
-  (funcall psr 'paa var nil))
+  (funcall psr 'pra var nil))
+  ; (funcall psr 'paa var nil))
 
 (defun psr-altera-dominio! (psr var dom)
   (let ((index (funcall psr 'dom-i var)))
