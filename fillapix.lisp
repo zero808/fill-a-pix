@@ -80,25 +80,29 @@
 
 
 (defun adiciona-valor! (valores atribuidas nao-atribuidas var val)
+  (setf (gethash var valores) (cons (car (gethash var valores)) val))
   ;   se estivermos a adicionar o valor pela primeira vez
   (if (null (member var atribuidas :test 'equal))
-    (progn
+    (values
       ;adiciona a lista de atribuidas
       (nconc atribuidas (list var))
       ;e retira das nao atribuidas
-      (setf nao-atribuidas (delete var nao-atribuidas :test 'equal))))
+      (delete var nao-atribuidas :test 'equal))))
   ;e poe na hashtable o valor correcto
-  (setf (gethash var valores) (cons (car (gethash var valores)) val)))
 
 (defun remove-valor! (valores atribuidas nao-atribuidas var)
+  (setf (gethash var valores) (cons (car (gethash var valores)) nil))
   ;(remove var atribuidas :test 'equal)
-  (setf atribuidas (delete var atribuidas :test 'equal))
-  (nconc nao-atribuidas (list var))
-  (setf (gethash var valores) (cons (car (gethash var valores)) nil)))
+  (values
+    (delete var atribuidas :test 'equal)
+    (nconc nao-atribuidas (list var))))
 
+; (defun retorna-atribuidas2 (atribuidas vals)
+;     (values atribuidas vals))
 (defun retorna-atribuidas (atribuidas vals)
+  ; (gethash "x" vals))
   (let ((res nil))
-    (dolist (temp atribuidas (nreverse res)) (push (cons temp (gethash temp vals)) res))))
+    (dolist (temp atribuidas (nreverse res)) (push (cons temp (cdr (gethash temp vals))) res))))
 ;
 ;(defun corrige-valores (valores atribuidas nao-atribuidas var val)
 ;  (setf (gethash var valores) (cons (car (gethash var valores)) val))
@@ -180,8 +184,25 @@
         ;troca o valor da variavel
         ; (paa (multiple-value-bind (a b) (corrige-valores valores atribuidas nao-atribuidas arg1 arg2)
         ;            (setf atribuidas a) (setf nao-atribuidas b)))
-        (paa (adiciona-valor! valores atribuidas nao-atribuidas arg1 arg2))
-        (pra (remove-valor! valores atribuidas nao-atribuidas arg1))
+        (paa (multiple-value-bind (a b)
+               (adiciona-valor! valores atribuidas nao-atribuidas arg1 arg2)
+               ;#'and porque uma das listas pode estar vazia
+               ;FIXME
+               ;Corrigir o if porque claramente nao funciona quando atribuimos
+               ;um valor a todas as variaveis logo o (not (null b)) falha e nao faz
+               ;o que deve
+               (if (and (not (null a)) (not (null b)))
+                 (progn
+                   (setf atribuidas a)
+                   (setf nao-atribuidas b)))))
+        (pra (multiple-value-bind (a b)
+               (remove-valor! valores atribuidas nao-atribuidas arg1)
+               ;FIXME o mesmo que em cima para quando removemos o valor de todas as variaveis
+               (if (and (not (null a)) (not (null b)))
+                 (progn
+                   (setf atribuidas a)
+                   (setf nao-atribuidas b)))))
+        ; (pra (remove-valor! valores atribuidas nao-atribuidas arg1))
         ;verifica se algum valor de uma variavel esta a nil
         (comp (null nao-atribuidas))
         (consis (consistente restricoes arg1))
