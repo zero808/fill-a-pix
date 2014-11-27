@@ -53,74 +53,54 @@
   (flet ((f0 (key value) key (nreverse value)))
       (maphash #'f0 rede)))
 
+(defun procura-atribuidas (vars vals)
+  (let ((res nil))
+    (dolist (temp vars (nreverse res))
+      (if (cdr (gethash temp vals))
+        (push (cons temp (cdr (gethash temp vals))) res)))))
+
+(defun procura-nao-atribuidas (vars vals)
+  (let ((res nil))
+    (dolist (temp vars (nreverse res))
+      (if (null (cdr (gethash temp vals)))
+        (push temp res)))))
+
 (defun consistente (restricoes psr)
   (do ((counter 0 (1+ counter))
        (result t)
        (element nil)
        (size (length restricoes)))
-    ((= size counter) (values result counter))
+    ((or (= size counter) (not result)) (values result counter))
     (progn
       (setf element (restricao-funcao-validacao (nth counter restricoes)))
       (setf result (and result (funcall element psr))))))
 
-; (defun adiciona-valor! (valores atribuidas nao-atribuidas var val)
-;   (let ((flag nil))
-;     (do ((i 0 (1+ i))
-;          (elemento nil)
-;          (size (length atribuidas)))
-;       ((or flag (= size i)))
-;       (progn (setf elemento (nth i atribuidas))
-;              (if (equal var (car elemento))
-;                (progn
-;                  (setf elemento (cons var val))
-;                  (setf flag t)))))
-;     (if (null flag)
-;       (progn
-;         (remove var nao-atribuidas)))))
-
-
-(defun adiciona-valor! (valores atribuidas nao-atribuidas var val)
+(defun adiciona-valor! (valores var val)
   (setf (gethash var valores) (cons (car (gethash var valores)) val))
+  )
   ;   se estivermos a adicionar o valor pela primeira vez
-  (if (null (member var atribuidas :test 'equal))
-    (values
-      ;adiciona a lista de atribuidas
-      (nconc atribuidas (list var))
-      ;e retira das nao atribuidas
-      (delete var nao-atribuidas :test 'equal))))
+;  (if (null (member var atribuidas :test 'equal))
+;    (values
+;      ;adiciona a lista de atribuidas
+;      (nconc atribuidas (list var))
+;      ;e retira das nao atribuidas
+;      (delete var nao-atribuidas :test 'equal))))
   ;e poe na hashtable o valor correcto
 
-(defun remove-valor! (valores atribuidas nao-atribuidas var)
+(defun remove-valor! (valores var)
   (setf (gethash var valores) (cons (car (gethash var valores)) nil))
+  )
   ;(remove var atribuidas :test 'equal)
-  (values
-    (delete var atribuidas :test 'equal)
-    (nconc nao-atribuidas (list var))))
+;  (values
+;    (delete var atribuidas :test 'equal)
+;    (nconc nao-atribuidas (list var))))
 
-; (defun retorna-atribuidas2 (atribuidas vals)
-;     (values atribuidas vals))
-(defun retorna-atribuidas (atribuidas vals)
-  ; (gethash "x" vals))
-  (let ((res nil))
-    (dolist (temp atribuidas (nreverse res)) (push (cons temp (cdr (gethash temp vals))) res))))
-;
-;(defun corrige-valores (valores atribuidas nao-atribuidas var val)
-;  (setf (gethash var valores) (cons (car (gethash var valores)) val))
-;  (if (null val)
-;    ;queremos remover
-;    (values
-;      (remove var atribuidas :test 'equal)
-;      (if (null (find var nao-atribuidas :test 'equal))
-;        (append nao-atribuidas (list var))
-;        nao-atribuidas))
-;    ;queremos alterar o valor
-;    (values
-;      ;para testar se e a primeira vez que fazemos uma atribuicao
-;      ;ou se estamos a alterar um valor existente
-;      (if (null (find var atribuidas :test 'equal))
-;        (append atribuidas (list var))
-;        atribuidas)
-;      (remove var nao-atribuidas :test 'equal))))
+(defun procura-restricoes-comuns (restricoes var2)
+  (let ((resultado nil))
+    ;para cada restricao da var1 ve se var2 esta envolvido nela
+    (dolist (restricao restricoes (nreverse resultado))
+      (if (member var2 (restricao-variaveis restricao) :test 'equal)
+        (push restricao resultado)))))
 
 (defun testa-pacp (psr var novo )
   (let ((oldvalue (psr-variavel-valor psr var))
@@ -132,26 +112,27 @@
       (psr-adiciona-atribuicao! psr var oldvalue))
     (values-list retorno)))
 
-(defun testa-pacap (valores var1 val1 var2 val2 restricoes psr)
-  (let ((antigo1 (cdr (gethash var1 valores)))
-        (antigo2 (cdr (gethash var2 valores)))
+(defun testa-pacap (var1 val1 var2 val2 restricoes psr)
+  (let ((antigo1 (psr-variavel-valor psr var1))
+        (antigo2 (psr-variavel-valor psr var2))
         (retorno nil))
-    ;alteramos isto manualmente para nao modificar as listas de atribuidos e nao
-    ;atribuidos
-    (setf (cdr (gethash var1 valores)) val1)
-    (setf (cdr (gethash var2 valores)) val2)
+
+    (psr-adiciona-atribuicao! psr var1 val1)
+    (psr-adiciona-atribuicao! psr var2 val2)
     (setf retorno (multiple-value-list (consistente restricoes psr)))
-    (setf (cdr (gethash var1 valores)) antigo1)
-    (setf (cdr (gethash var2 valores)) antigo2)
+    (if (null antigo1)
+      (psr-remove-atribuicao! psr var1)
+      (psr-adiciona-atribuicao! psr var1 antigo1))
+    (if (null antigo2)
+      (psr-remove-atribuicao! psr var2)
+      (psr-adiciona-atribuicao! psr var2 antigo2))
     (values-list retorno)))
 
 ; lista variaveis x lista dominios x lista restricoes -> PSR
 (defun cria-psr (lst-vars lst-dominios lst-restri)
-  (let ((atribuidas nil) ;variaveis com valores atribuidos
-        (nao-atribuidas (copy-list lst-vars)) ;variaveis que ainda nao tem valores atribuidos
+  (let (;(atribuidas nil) ;variaveis com valores atribuidos
+        ;(nao-atribuidas (copy-list lst-vars)) ;variaveis que ainda nao tem valores atribuidos
         ;lista de todas as variaveis do problema
-        ;NOTE: Isto nao e redundante?
-        ;(variaveis lst-vars)
         ;os dominios de cada variavel
         (dominios lst-dominios)
         ;as restricoes do problema
@@ -169,8 +150,9 @@
     (lambda (psr &optional arg1 arg2 arg3 arg4 arg5 arg6)
       (case psr
         ;(pa atribuidas)
-        (pa (retorna-atribuidas atribuidas valores))
-        (pvna nao-atribuidas)
+        (pa (procura-atribuidas lst-vars valores))
+        ;(pvna (sort nao-atribuidas #'string-lessp))
+        (pvna (procura-nao-atribuidas lst-vars valores))
         (pvt lst-vars)
         ;retorna o index em que a variavel se encontra
         (dom-i (car (gethash arg1 valores)))
@@ -184,31 +166,22 @@
         ;troca o valor da variavel
         ; (paa (multiple-value-bind (a b) (corrige-valores valores atribuidas nao-atribuidas arg1 arg2)
         ;            (setf atribuidas a) (setf nao-atribuidas b)))
-        (paa (multiple-value-bind (a b)
-               (adiciona-valor! valores atribuidas nao-atribuidas arg1 arg2)
-               ;#'and porque uma das listas pode estar vazia
-               ;FIXME
-               ;Corrigir o if porque claramente nao funciona quando atribuimos
-               ;um valor a todas as variaveis logo o (not (null b)) falha e nao faz
-               ;o que deve
-               (if (and (not (null a)) (not (null b)))
-                 (progn
-                   (setf atribuidas a)
-                   (setf nao-atribuidas b)))))
-        (pra (multiple-value-bind (a b)
-               (remove-valor! valores atribuidas nao-atribuidas arg1)
-               ;FIXME o mesmo que em cima para quando removemos o valor de todas as variaveis
-               (if (and (not (null a)) (not (null b)))
-                 (progn
-                   (setf atribuidas a)
-                   (setf nao-atribuidas b)))))
-        ; (pra (remove-valor! valores atribuidas nao-atribuidas arg1))
+        (paa (adiciona-valor! valores arg1 arg2))
+;               (if (or (not (null a)) (not (null b)))
+;                 (progn
+;                   (setf atribuidas a)
+;                   (setf nao-atribuidas b)))))
+        (pra (remove-valor! valores arg1))
+;               (if (or (not (null a)) (not (null b)))
+;                 (progn
+;                   (setf atribuidas a)
+;                   (setf nao-atribuidas b)))))
         ;verifica se algum valor de uma variavel esta a nil
-        (comp (null nao-atribuidas))
+        (comp (null (procura-nao-atribuidas lst-vars valores)))
         (consis (consistente restricoes arg1))
         (pvcp (consistente arg1 arg2))
         (pacp (testa-pacp arg1 arg2 arg3));var2 aqui sao as restricoes da variavel
-        (pacap (testa-pacap valores arg1 arg2 arg3 arg4 arg5 arg6))
+        (pacap (testa-pacap arg1 arg2 arg3 arg4 arg5 arg6))
         ))))
 
 (defun psr-atribuicoes (psr)
@@ -258,10 +231,13 @@
     (funcall psr 'pacp psr variavel valor))
 
 (defun psr-atribuicoes-consistentes-arco-p (psr var1 val1 var2 val2)
-  (funcall psr 'pacap var1 val1 var2 val2 (remove-duplicates
-                                            (append (psr-variavel-restricoes psr var1)
-                                                    (psr-variavel-restricoes psr var2))
-                                            :test 'eq) psr))
+;  (funcall psr 'pacap var1 val1 var2 val2 (remove-duplicates
+;                                            (append (psr-variavel-restricoes psr var1)
+;                                                    (psr-variavel-restricoes psr var2))
+;                                            :test 'eq :from-end t) psr))
+(funcall psr 'pacap var1 val1 var2 val2 (procura-restricoes-comuns (psr-variavel-restricoes psr var1)
+                                                                   var2) psr))
+
 
 ;parte 2.2.1
 ;(defun fill-a-pix->psr (arr))
