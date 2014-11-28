@@ -239,6 +239,84 @@
                                                                    var2) psr))
 
 
+; recebe a posicao num array de (n * m) e identifica o seu numero de posicao entre 0 a ((n * m) - 1)
+; calculado atrave's de (tamanho-coluna * linha) + numero-coluna
+; exemplo: posicao (3,4) num array 5*5; linha 3, coluna 4
+;          (5 * 3) + 4 = 15 + 4 = 19
+;          elemento 19
+; argumentos
+; i - inteiro que identifica a linha
+; j - inteiro que identifica a coluna
+; dimensao - lista de dois elementos com o tamanho do array
+(defun identifica-numero-variavel (i j dimensao)
+  (let ((tamanho-coluna (second dimensao)))
+      (+ (* tamanho-coluna i) j)))
+
+; recebe um array e cria uma lista de variaveis com todos os elementos do array
+; usa a funcao identifica-numero-variavel para dar um nome unico a cada variavel
+; coincide que o numero da variavel vai ser tambem a posicao na lista de dominios
+(defun cria-lista-variaveis (array)
+  (let ((tamanho-linha (first (array-dimensions array))) ; i max
+		(tamanho-coluna (second (array-dimensions array))) ; j max
+        (resultado nil))
+    (do ((i 0 (+ i 1)))
+      ((= i tamanho-linha) (nreverse resultado)) ; devolve-se a lista resultado revertida
+     (do ((j 0 (+ j 1)))
+       ((= j tamanho-coluna))
+      (push (write-to-string (identifica-numero-variavel i j (list tamanho-linha tamanho-coluna)))
+            resultado))))) ; adicionar cada nome de variavel 'a lista
+
+; devolve T se numero está entre numero-minimo e numero-maximo
+(defun numero-valido (numero numero-minimo numero-maximo)
+  (and (>= numero numero-minimo)
+       (<= numero numero-maximo))) ;
+
+; recebe uma posicao num array e devolve uma lista de posicoes adjacentes
+(defun lista-adjacentes (i j dimensao)
+  (let ((tamanho-linha (first dimensao)) ; i max
+		(tamanho-coluna (second dimensao)) ; j max
+        (resultado nil)
+        (lista-auxiliar nil))
+      (setf lista-auxiliar (list (cons (- i 1) (- j 1))  ; todas as posicoes adjacentes possiveis
+                                 (cons (- i 1) j)
+                                 (cons (- i 1) (+ j 1))
+                                 (cons i (- j 1))
+                                 (cons i j)
+                                 (cons i (+ j 1))
+                                 (cons (+ i 1) (- j 1))
+                                 (cons (+ i 1) j)
+                                 (cons (+ i 1) (+ j 1))))
+      (dolist (elemento lista-auxiliar (nreverse resultado))
+        (if (and (numero-valido (car elemento) 0 (- tamanho-linha 1))  ; verificar se o par de posicao e' valido
+                 (numero-valido (cdr elemento) 0 (- tamanho-coluna 1)))
+            (push elemento resultado))))) ; se for valido, adiciona-se à lista de posicoes adjacentes
+                       
+
+;(defun cria-dominio-restricao (array)
+  ;(let ((tamanho-linha (first (array-dimensions array)))
+        ;(tamanho-coluna (second (array-dimensions array)))
+        ;(dominio (make-list (* tamanho-linha tamanho-coluna) :initial-element (list 0)))) ; o dominio de todas as variaveis e' por definicao 0. Pode ser 0 e 1 ou apenas 1
+       ;; (restricoes nil))
+     ;(do ((i 0 (+ i 1)))
+       ;((= i tamanho-linha))
+      ;(do ((j 0 (+ j 1)))
+        ;((= j tamanho-coluna))
+       ;(if (numberp (aref array i j)) ; se encontrar um numero, e' necessario mudar os dominios das variaveis adjacentes e criar uma restricao
+           ;(progn
+             ;(let ((posicoes-adjacentes (lista-adjacentes i j (list tamanho-linha tamanho-coluna))))
+               ;(if (= (aref array i j) 9) ; implica que todas as variaveis 'a volta sao 1. Nao e' necessario predicado, apenas dominio de 1 para todas as variaveis adjacentes
+                   ;(dolist (elemento posicoes-adjacentes)
+                     ;(setf (nth (identifica-numero-variavel (car elemento) (cdr elemento) (list tamanho-linha tamanho-coluna)) dominio) (list 1))) ; de todas as variaveis adjacentes, muda o dominio para 1     
+                 ;; se o numero for menor que 9, o dominio destas variaveis e' (0 1), no entanto algumas destas variaveis ja podem ter tido o seu dominio mudado para 1, nesse caso nao pretendemos alterar
+                 ;; no caso de ter sido mudado para (0 1), tambem nao e' necessario mudar.
+                 ;; e' preciso apenas mudar no caso do dominio ser 0.
+                   ;(progn (dolist (elemento posicoes-adjacentes)
+                     ;(let ((numero-variavel (identifica-numero-variavel (car elemento) (cdr elemento) (list tamanho-linha tamanho-coluna))))
+                        ;(if (equal (nth numero-variavel dominio) (list 0))
+                            ;(setf (nth numero-variavel dominio) (list 0 1)))))))))))) dominio))
+                            
+                     ;;(push (faz-predicado posicoes-adjacentes (aref array i j)) restricoes)))))))) (values ))
+
 ;parte 2.2.1
 ;(defun fill-a-pix->psr (arr))
 
