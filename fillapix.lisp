@@ -266,7 +266,7 @@
       (push (write-to-string (identifica-numero-variavel i j (list tamanho-linha tamanho-coluna)))
             resultado))))) ; adicionar cada nome de variavel 'a lista
 
-; devolve T se numero está entre numero-minimo e numero-maximo
+; devolve T se numero esta entre numero-minimo e numero-maximo
 (defun numero-valido (numero numero-minimo numero-maximo)
   (and (>= numero numero-minimo)
        (<= numero numero-maximo))) ;
@@ -289,38 +289,84 @@
       (dolist (elemento lista-auxiliar (nreverse resultado))
         (if (and (numero-valido (car elemento) 0 (- tamanho-linha 1))  ; verificar se o par de posicao e' valido
                  (numero-valido (cdr elemento) 0 (- tamanho-coluna 1)))
-            (push elemento resultado))))) ; se for valido, adiciona-se à lista de posicoes adjacentes
-                       
+            (push elemento resultado))))) ; se for valido, adiciona-se a lista de posicoes adjacentes
 
-;(defun cria-dominio-restricao (array)
-  ;(let ((tamanho-linha (first (array-dimensions array)))
-        ;(tamanho-coluna (second (array-dimensions array)))
-        ;(dominio (make-list (* tamanho-linha tamanho-coluna) :initial-element (list 0)))) ; o dominio de todas as variaveis e' por definicao 0. Pode ser 0 e 1 ou apenas 1
-       ;; (restricoes nil))
-     ;(do ((i 0 (+ i 1)))
-       ;((= i tamanho-linha))
-      ;(do ((j 0 (+ j 1)))
-        ;((= j tamanho-coluna))
-       ;(if (numberp (aref array i j)) ; se encontrar um numero, e' necessario mudar os dominios das variaveis adjacentes e criar uma restricao
-           ;(progn
-             ;(let ((posicoes-adjacentes (lista-adjacentes i j (list tamanho-linha tamanho-coluna))))
+
+(defun faz-restricao (posicoes-adjacentes valor tamanho)
+  (let ((lista-variaveis nil)
+        (predicado nil))
+    (dolist (elemento posicoes-adjacentes)
+      (push (write-to-string (identifica-numero-variavel (car elemento) (cdr elemento) tamanho)) lista-variaveis))
+    (setf lista-variaveis (nreverse lista-variaveis))
+    (cond
+        ((= (length lista-variaveis) 9) (setf predicado #'(lambda (psr) (let ((el0 (psr-variavel-valor psr (nth 0 lista-variaveis)))
+                                                                              (el1 (psr-variavel-valor psr (nth 1 lista-variaveis)))
+                                                                              (el2 (psr-variavel-valor psr (nth 2 lista-variaveis)))
+                                                                              (el3 (psr-variavel-valor psr (nth 3 lista-variaveis)))                                                                                           
+                                                                              (el4 (psr-variavel-valor psr (nth 4 lista-variaveis)))
+                                                                              (el5 (psr-variavel-valor psr (nth 5 lista-variaveis)))
+                                                                              (el6 (psr-variavel-valor psr (nth 6 lista-variaveis)))
+                                                                              (el7 (psr-variavel-valor psr (nth 7 lista-variaveis)))
+                                                                              (el8 (psr-variavel-valor psr (nth 8 lista-variaveis))))
+                                                                                  ;; alguma outra maneira de fazer isto?
+                                                                          (if (and el0 el1 el2 el3 el4 el5 el6 el7 el8) (= (+ el0 el1 el2 el3 el4 el5 el6 el7 el8) valor) T)))))
+                                                                              
+        ((= (length lista-variaveis) 6) (setf predicado #'(lambda (psr) (let ((el0 (psr-variavel-valor psr (nth 0 lista-variaveis)))
+                                                                                 (el1 (psr-variavel-valor psr (nth 1 lista-variaveis)))
+                                                                                 (el2 (psr-variavel-valor psr (nth 2 lista-variaveis)))
+                                                                                 (el3 (psr-variavel-valor psr (nth 3 lista-variaveis)))                                                                                           
+                                                                                 (el4 (psr-variavel-valor psr (nth 4 lista-variaveis)))
+                                                                                 (el5 (psr-variavel-valor psr (nth 5 lista-variaveis))))
+                                                                          (if (and el0 el1 el2 el3 el4 el5) (= (+ el0 el1 el2 el3 el4 el5) valor) T)))))
+        
+        ((= (length lista-variaveis) 4) (setf predicado #'(lambda (psr) (let ((el0 (psr-variavel-valor psr (nth 0 lista-variaveis)))
+                                                                              (el1 (psr-variavel-valor psr (nth 1 lista-variaveis)))
+                                                                              (el2 (psr-variavel-valor psr (nth 2 lista-variaveis)))
+                                                                              (el3 (psr-variavel-valor psr (nth 3 lista-variaveis))))                                                                                           
+                                                                          (if (and el0 el1 el2 el3) (= (+ el0 el1 el2 el3) valor) T))))))
+     (cria-restricao lista-variaveis predicado)))
+
+(defun cria-dominio-restricao (array)
+  (let* ((tamanho-linha (first (array-dimensions array)))
+         (tamanho-coluna (second (array-dimensions array)))
+         (dominio (make-list (* tamanho-linha tamanho-coluna) :initial-element (list 0))) ; o dominio de todas as variaveis e' por definicao 0. Pode ser 0 e 1 ou apenas 1
+         (restricoes nil))
+     (do ((i 0 (+ i 1)))
+       ((= i tamanho-linha))
+      (do ((j 0 (+ j 1)))
+        ((= j tamanho-coluna))
+       (if (numberp (aref array i j)) ; se encontrar um numero, e' necessario mudar os dominios das variaveis adjacentes e criar uma restricao
+           (progn
+             (let ((posicoes-adjacentes (lista-adjacentes i j (list tamanho-linha tamanho-coluna))))
+               ;; comentado por nao dar resultados esperados: vai-se entao criar um predicado para fazer a soma de todos os valores a dar 9 em vez de simplesmente contar o dominio destas variaveis a 1.
                ;(if (= (aref array i j) 9) ; implica que todas as variaveis 'a volta sao 1. Nao e' necessario predicado, apenas dominio de 1 para todas as variaveis adjacentes
-                   ;(dolist (elemento posicoes-adjacentes)
-                     ;(setf (nth (identifica-numero-variavel (car elemento) (cdr elemento) (list tamanho-linha tamanho-coluna)) dominio) (list 1))) ; de todas as variaveis adjacentes, muda o dominio para 1     
-                 ;; se o numero for menor que 9, o dominio destas variaveis e' (0 1), no entanto algumas destas variaveis ja podem ter tido o seu dominio mudado para 1, nesse caso nao pretendemos alterar
-                 ;; no caso de ter sido mudado para (0 1), tambem nao e' necessario mudar.
-                 ;; e' preciso apenas mudar no caso do dominio ser 0.
-                   ;(progn (dolist (elemento posicoes-adjacentes)
-                     ;(let ((numero-variavel (identifica-numero-variavel (car elemento) (cdr elemento) (list tamanho-linha tamanho-coluna))))
-                        ;(if (equal (nth numero-variavel dominio) (list 0))
-                            ;(setf (nth numero-variavel dominio) (list 0 1)))))))))))) dominio))
+                ;   (dolist (elemento posicoes-adjacentes)
+                 ;    (setf (nth (identifica-numero-variavel (car elemento) (cdr elemento) (list tamanho-linha tamanho-coluna)) dominio) (list 1))) ; de todas as variaveis adjacentes, muda o dominio para 1     
+                 ; se o numero for menor que 9, o dominio destas variaveis e' (0 1), no entanto algumas destas variaveis ja podem ter tido o seu dominio mudado para 1, nesse caso nao pretendemos alterar
+                 ; no caso de ter sido mudado para (0 1), tambem nao e' necessario mudar.
+                 ; e' preciso apenas mudar no caso do dominio ser 0.
+                    (dolist (elemento posicoes-adjacentes)  ; para cada posicao, vai-se mudar o dominio para (0 1)
+                            (let ((numero-variavel (identifica-numero-variavel (car elemento) (cdr elemento) (list tamanho-linha tamanho-coluna))))
+                              (if (equal (nth numero-variavel dominio) (list 0))
+                                  (setf (nth numero-variavel dominio) (list 0 1)))))
+                    (push (faz-restricao posicoes-adjacentes (aref array i j) (list tamanho-linha tamanho-coluna)) restricoes)))))) (values dominio (nreverse restricoes))))
                             
-                     ;;(push (faz-predicado posicoes-adjacentes (aref array i j)) restricoes)))))))) (values ))
 
 ;parte 2.2.1
-;(defun fill-a-pix->psr (arr))
+(defun fill-a-pix->psr (arr)
+  (multiple-value-bind (dominio restricoes) (cria-dominio-restricao arr) (cria-psr (cria-lista-variaveis arr) dominio restricoes)))
 
-;(defun psr->fill-a-pix (psr linhas colunas))
+(defun psr->fill-a-pix (psr linhas colunas)
+  (let ((arr (make-array (list linhas colunas)))
+        (variaveis (psr-variaveis-todas psr)))
+    (do ((i 0 (+ i 1))
+         (counter 0))
+       ((= i linhas))
+     (do ((j 0 (+ j 1)))
+        ((= j colunas))
+      (setf (aref arr i j) (psr-variavel-valor psr (nth counter variaveis)))
+      (setf counter (+ counter 1))))
+  arr)) 
 
 ;parte 2.2.2
 ;(defun procura-retrocesso-simples (psr))
