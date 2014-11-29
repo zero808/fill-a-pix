@@ -410,17 +410,22 @@
   
  ;; o^2?
  ;; devolve a variavel com grau maior
-(defun heuristica-grau (psr variaveis)
+(defun heuristica-grau (psr)
   (let ((variavel-resultado nil)
-        (variavel-resultado-grau 0))
-    (dolist (variavel variaveis)
-      (let ((variavel-restricoes (psr-variavel-restricoes psr variavel))
-            (lista-restricoes-comuns nil))
-        (dolist (variavel2 variaveis)
-            (setf lista-restricoes-comuns (append lista-restricoes-comuns (procura-restricoes-comuns variavel-restricoes variavel2)))) ; procura restricoes comuns com outras variaves nao atribuidas
-        (setf lista-restricoes-comuns (remove-duplicates lista-restricoes-comuns :test 'eq)) ;; no final de ter todas as restricoes comuns com as outras variaveis, remove todos os elementos repetidos
-        (if (> (length lista-restricoes-comuns) variavel-resultado-grau)                     ;; se for um elemento com mais restricoes do que os previamente testados
-            (progn (setf variavel-resultado variavel) (setf variavel-resultado-grau (length lista-restricoes-comuns)))))) ;; guardar variavel e grau da variavel
+        (variavel-resultado-grau -1)
+        (variaveis (psr-variaveis-nao-atribuidas psr))); para evitar erros quando a lista de restricoes comuns tem length 0
+    (if (= (length variaveis) 1)
+        (setf variavel-resultado (first variaveis))
+        (progn
+          (dolist (variavel variaveis)
+            (let ((variavel-restricoes (psr-variavel-restricoes psr variavel))
+                  (lista-restricoes-comuns nil))
+              (dolist (variavel2 variaveis)
+                (if (not (equal variavel2 variavel))
+                    (setf lista-restricoes-comuns (append lista-restricoes-comuns (procura-restricoes-comuns variavel-restricoes variavel2))))) ; procura restricoes comuns com outras variaves nao atribuidas
+              (setf lista-restricoes-comuns (remove-duplicates lista-restricoes-comuns :test 'eq)) ;; no final de ter todas as restricoes comuns com as outras variaveis, remove todos os elementos repetidos
+              (if (> (length lista-restricoes-comuns) variavel-resultado-grau)                     ;; se for um elemento com mais restricoes do que os previamente testados
+                  (progn (setf variavel-resultado variavel) (setf variavel-resultado-grau (length lista-restricoes-comuns)))))))) ;; guardar variavel e grau da variavel
    variavel-resultado))
    
 (defun procura-retrocesso-grau (psr)
@@ -429,7 +434,7 @@
    (if (psr-completo-p psr)
        (values psr testesTotais)
        (progn
-         (setf variavel (heuristica-grau psr (psr-variaveis-nao-atribuidas psr))) ; unica diferenca da procura simples, usa heuristica para encontrar proxima variavel a ser instanciada
+         (setf variavel (heuristica-grau psr)) ; unica diferenca da procura simples, usa heuristica para encontrar proxima variavel a ser instanciada
          (dolist (valor (psr-variavel-dominio psr variavel) (values nil testesTotais)) ; retorna nil se acabar o dolist sem haver chamada de return
            (multiple-value-bind (valor-consistente testes) (psr-atribuicao-consistente-p psr variavel valor)
              (setf testesTotais (+ testesTotais testes)) ; contar sempre todos os testes feitos
@@ -440,6 +445,109 @@
                      (setf testesTotais (+ testesTotais maisTestes))
                      (if resultado (return (values resultado testesTotais))) ; se resultado nao for nil, sair do loop e devolver resultado
                      (psr-remove-atribuicao! psr variavel))))))))))
+
+(defun heuristica-mrv (psr)
+  (let* ((variaveis (psr-variaveis-nao-atribuidas psr))
+         (variavel-resultado (first variaveis))
+         (dominio-variavel-resultado (length (psr-variavel-dominio psr variavel-resultado))))
+    (dolist (variavel (rest variaveis))
+      (if (< (length (psr-variavel-dominio psr variavel)) dominio-variavel-resultado)
+          (progn (setf variavel-resultado variavel) (setf dominio-variavel-resultado (length (psr-variavel-dominio psr variavel))))))
+  variavel-resultado))
+
+;(defun procura-retrocesso-fc-mrv (psr)
+  ;(let ((testesTotais 0)
+       ;(variavel nil))
+     ;(if (psr-completo-p psr)
+         ;(values psr testesTotais)
+         ;(progn
+           ;(setf variavel (heuristica-mrv psr))
+           ;(dolist (valor (psr-variavel-dominio psr variavel) (values nil testesTotais))
+             ;(multiple-value-bind (valor-consistente testes) (psr-atribuicao-consistente-p psr variavel valor)
+               ;(setf testesTotais (+ testesTotais testes))
+               ;(if valor-consistentes
+                   ;(progn
+                     ;(psr-adiciona-atribuicao! psr variavel valor)
+                     ;(
+(defun arcos-vizinhos-nao-atribuidos (psr variavel)
+  (let ((lista-arcos nil))
+    (dolist (var-natribuida (psr-variaveis-nao-atribuidas psr))
+      if (null (equal variavel var-natribuida))
+         (progn (if (procura-restricoes-comuns  (psr-variavel-restricoes psr variavel) var-natribuida)
+                    (setf lista-arcos (nconc lista-arcos (list (cons var-natribuida variavel)))))))
+    lista-arcos))
+       
+                    
+;(defun forward-checking (psr variavel)
+  ;(let ((testesTotais 0)
+        ;(inferencias nil)
+        ;(lista-arcos (arcos-vizinhos-nao-atribuidos psr variavel)))
+        
+    ;(dolist (arco lista-arcos)
+      
+(defun revise (psr x y inferencias)
+  (let ((testesTotais 0)
+         (revised nil)
+         (dominio-x nil)     
+                        ;(psr-variavel-dominio psr x)) ;; falta ir buscar as inferencias
+         (novo-dominio-x nil)
+         (dominio-y nil))
+    (multiple-value-bind (inferencia-x) (procura-variavel-inferencia-lista x inferencias)
+       (if inferencia-x
+           (setf dominio-x (inferencia-dominio inferencia-x))
+           (setf dominio-x (psr-variavel-dominio psr x))))
+    (setf novo-dominio-x dominio-x)
+    (multiple-value-bind (valor-y) (psr-variavel-valor y)
+       (if valor-y
+           (setf dominio-y (list valor-y))
+           (progn
+             (multiple-value-bind (inferencia-y) (procura-variavel-inferencia-lista y inferencias)
+               (if inferencia-y
+                   (setf dominio-y (inferencia-dominio inferencia-y))
+                   (setf dominio-y (psr-variavel-dominio psr y)))))))
+    (dolist (vx dominio-x)
+      (let ((foundConsistentValue nil))
+        (dolist (vy dominio-y)
+            (multiple-value-bind (valor-consistente testes) (psr-atribuicoes-consistentes-arco-p psr x vx y vy)
+               (incf testesTotais testes)
+               (if valor-consistente
+                   (progn (setf foundConsistentValue t)
+                          (return)))))
+        (if (null foundConsistenteValue)
+            (progn
+              (setf revised t)
+              (delete vx novo-dominio)))))
+    (if revised
+        ())
+   (values revised testesTotais)))
+        
+;; tipo inferencia
+(defun cria-inferencia (var dominio)
+  (cons var dominio))
+
+(defun inferencia-var (inferencia)
+  (car inferencia))
+
+(defun inferencia-dominio (inferencia)
+  (cdr inferencia))
+  
+(defun inferencia-variavel-igual-p (inf1 inf2)
+  (equal (car inf1) (car inf2)))
+
+(defun variavel-inferencia-p (var inf)
+  (equal var (car inf)))
+
+(defun procura-variavel-inferencia-lista (var lista)
+  (multiple-value-bind (n) (position var lista :test 'variavel-inferencia-p)
+    (if n
+        (nth n lista)
+        nil)))
+
+(defun adiciona-inferencia-lista (inf lista)
+  (let ((lista-resultado lista))
+    (multiple-value-bind (posicao) (position inf lista :test 'inferencia-variavel-igual-p)
+      (if posicao
+          (setf
 
 ;this way it works in whatever implementation
 #+clisp (load "exemplos.fas")
