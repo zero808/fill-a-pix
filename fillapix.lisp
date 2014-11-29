@@ -311,6 +311,9 @@
                                                                               (el8 (psr-variavel-valor psr (nth 8 lista-variaveis))))
                                                                                   ;; alguma outra maneira de fazer isto?
                                                                                   
+                                                                           ;; se o numero de 0s nas variaveis tem de ser inferior ou igual a 9 - valor
+                                                                           ;; se nao, mesmo que algumas variaveis nao estejam atribuidas
+                                                                           ;; e' possivel inferir que este predicado nao e' verdade.   
                                                                           (if (> (count 0 (list el0 el1 el2 el3 el4 el5 el6 el7 el8)) (- 9 valor))
                                                                               nil
                                                                               (if (and el0 el1 el2 el3 el4 el5 el6 el7 el8) (= (+ el0 el1 el2 el3 el4 el5 el6 el7 el8) valor) T))))))
@@ -365,15 +368,15 @@
   (multiple-value-bind (dominio restricoes) (cria-dominio-restricao arr) (cria-psr (cria-lista-variaveis arr) dominio restricoes)))
 
 (defun psr->fill-a-pix (psr linhas colunas)
-  (let ((arr (make-array (list linhas colunas)))
+  (let ((arr (make-array (list linhas colunas))) ; cria um array do tamanho especificado
         (variaveis (psr-variaveis-todas psr)))
-    (do ((i 0 (+ i 1))
+    (do ((i 0 (+ i 1)) ; ciclo que percorre as linhas do array
          (counter 0))
-       ((= i linhas))
-     (do ((j 0 (+ j 1)))
+       ((= i linhas)) 
+     (do ((j 0 (+ j 1))) ; ciclo que percorre as colunas do array
         ((= j colunas))
-      (setf (aref arr i j) (psr-variavel-valor psr (nth counter variaveis)))
-      (setf counter (+ counter 1))))
+      (setf (aref arr i j) (psr-variavel-valor psr (nth counter variaveis))) ; adicionar variavel a posicao i j da matrix
+      (setf counter (+ counter 1))))                                         ; incrementar contador de variavel               
   arr)) 
 
 ;parte 2.2.2
@@ -384,15 +387,15 @@
        (values psr testesTotais)
        (progn
          (setf variavel (first (psr-variaveis-nao-atribuidas psr)))
-         (dolist (valor (psr-variavel-dominio psr variavel) (values nil testesTotais))
+         (dolist (valor (psr-variavel-dominio psr variavel) (values nil testesTotais)) ; retorna nil se acabar o dolist sem haver chamada de return
            (multiple-value-bind (valor-consistente testes) (psr-atribuicao-consistente-p psr variavel valor)
-             (setf testesTotais (+ testesTotais testes))
-             (if valor-consistente
+             (setf testesTotais (+ testesTotais testes)) ; contar sempre todos os testes feitos
+             (if valor-consistente                       ; se o elemento do dominio for consistente, passar a proxima variavel com uma chamada de procura-retrocesso-simples
                  (progn
                    (psr-adiciona-atribuicao! psr variavel valor)
                    (multiple-value-bind (resultado maisTestes) (procura-retrocesso-simples psr)
                      (setf testesTotais (+ testesTotais maisTestes))
-                     (if resultado (return (values resultado testesTotais)))
+                     (if resultado (return (values resultado testesTotais))) ; se resultado nao for nil, sair do loop e devolver resultado
                      (psr-remove-atribuicao! psr variavel))))))))))
 
 (defun resolve-simples (arr)
