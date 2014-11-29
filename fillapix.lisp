@@ -292,6 +292,7 @@
             (push elemento resultado))))) ; se for valido, adiciona-se a lista de posicoes adjacentes
 
 
+
 (defun faz-restricao (posicoes-adjacentes valor tamanho)
   (let ((lista-variaveis nil)
         (predicado nil))
@@ -309,7 +310,10 @@
                                                                               (el7 (psr-variavel-valor psr (nth 7 lista-variaveis)))
                                                                               (el8 (psr-variavel-valor psr (nth 8 lista-variaveis))))
                                                                                   ;; alguma outra maneira de fazer isto?
-                                                                          (if (and el0 el1 el2 el3 el4 el5 el6 el7 el8) (= (+ el0 el1 el2 el3 el4 el5 el6 el7 el8) valor) T)))))
+                                                                                  
+                                                                          (if (> (count 0 (list el0 el1 el2 el3 el4 el5 el6 el7 el8)) (- 9 valor))
+                                                                              nil
+                                                                              (if (and el0 el1 el2 el3 el4 el5 el6 el7 el8) (= (+ el0 el1 el2 el3 el4 el5 el6 el7 el8) valor) T))))))
                                                                               
         ((= (length lista-variaveis) 6) (setf predicado #'(lambda (psr) (let ((el0 (psr-variavel-valor psr (nth 0 lista-variaveis)))
                                                                                  (el1 (psr-variavel-valor psr (nth 1 lista-variaveis)))
@@ -317,13 +321,17 @@
                                                                                  (el3 (psr-variavel-valor psr (nth 3 lista-variaveis)))                                                                                           
                                                                                  (el4 (psr-variavel-valor psr (nth 4 lista-variaveis)))
                                                                                  (el5 (psr-variavel-valor psr (nth 5 lista-variaveis))))
-                                                                          (if (and el0 el1 el2 el3 el4 el5) (= (+ el0 el1 el2 el3 el4 el5) valor) T)))))
+                                                                             (if (> (count 0 (list el0 el1 el2 el3 el4 el5)) (- 6 valor))
+                                                                                 nil
+                                                                                 (if (and el0 el1 el2 el3 el4 el5) (= (+ el0 el1 el2 el3 el4 el5) valor) T))))))
         
         ((= (length lista-variaveis) 4) (setf predicado #'(lambda (psr) (let ((el0 (psr-variavel-valor psr (nth 0 lista-variaveis)))
                                                                               (el1 (psr-variavel-valor psr (nth 1 lista-variaveis)))
                                                                               (el2 (psr-variavel-valor psr (nth 2 lista-variaveis)))
                                                                               (el3 (psr-variavel-valor psr (nth 3 lista-variaveis))))                                                                                           
-                                                                          (if (and el0 el1 el2 el3) (= (+ el0 el1 el2 el3) valor) T))))))
+                                                                           (if (> (count 0 (list el0 el1 el2 el3)) (- 4 valor))
+                                                                               nil
+																		       (if (and el0 el1 el2 el3) (= (+ el0 el1 el2 el3) valor) T)))))))
      (cria-restricao lista-variaveis predicado)))
 
 (defun cria-dominio-restricao (array)
@@ -369,7 +377,23 @@
   arr)) 
 
 ;parte 2.2.2
-;(defun procura-retrocesso-simples (psr))
+(defun procura-retrocesso-simples (psr)
+  (let ((testesTotais 0)
+        (variavel nil))
+   (if (psr-completo-p psr)
+       (values psr testesTotais)
+       (progn
+         (setf variavel (first (psr-variaveis-nao-atribuidas psr)))
+         (dolist (valor (psr-variavel-dominio psr variavel) (values nil testesTotais))
+           (multiple-value-bind (valor-consistente testes) (psr-atribuicao-consistente-p psr variavel valor)
+             (setf testesTotais (+ testesTotais testes))
+             (if valor-consistente
+                 (progn
+                   (psr-adiciona-atribuicao! psr variavel valor)
+                   (multiple-value-bind (resultado maisTestes) (procura-retrocesso-simples psr)
+                     (setf testesTotais (+ testesTotais maisTestes))
+                     (if resultado (return (values resultado testesTotais)))
+                     (psr-remove-atribuicao! psr variavel))))))))))
 
 ;(defun resolve-simples (arr))
 
