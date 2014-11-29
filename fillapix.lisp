@@ -408,7 +408,38 @@
    (if resultado (setf array-final (psr->fill-a-pix psr (first tamanho) (second tamanho))))
    array-final))
   
-
+ ;; o^2?
+ ;; devolve a variavel com grau maior
+(defun heuristica-grau (psr variaveis)
+  (let ((variavel-resultado nil)
+        (variavel-resultado-grau 0))
+    (dolist (variavel variaveis)
+      (let ((variavel-restricoes (psr-variavel-restricoes psr variavel))
+            (lista-restricoes-comuns nil))
+        (dolist (variavel2 variaveis)
+            (setf lista-restricoes-comuns (append lista-restricoes-comuns (procura-restricoes-comuns variavel-restricoes variavel2)))) ; procura restricoes comuns com outras variaves nao atribuidas
+        (setf lista-restricoes-comuns (remove-duplicates lista-restricoes-comuns :test 'eq)) ;; no final de ter todas as restricoes comuns com as outras variaveis, remove todos os elementos repetidos
+        (if (> (length lista-restricoes-comuns) variavel-resultado-grau)                     ;; se for um elemento com mais restricoes do que os previamente testados
+            (progn (setf variavel-resultado variavel) (setf variavel-resultado-grau (length lista-restricoes-comuns)))))) ;; guardar variavel e grau da variavel
+   variavel-resultado))
+   
+(defun procura-retrocesso-grau (psr)
+  (let ((testesTotais 0)
+        (variavel nil))
+   (if (psr-completo-p psr)
+       (values psr testesTotais)
+       (progn
+         (setf variavel (heuristica-grau psr (psr-variaveis-nao-atribuidas psr))) ; unica diferenca da procura simples, usa heuristica para encontrar proxima variavel a ser instanciada
+         (dolist (valor (psr-variavel-dominio psr variavel) (values nil testesTotais)) ; retorna nil se acabar o dolist sem haver chamada de return
+           (multiple-value-bind (valor-consistente testes) (psr-atribuicao-consistente-p psr variavel valor)
+             (setf testesTotais (+ testesTotais testes)) ; contar sempre todos os testes feitos
+             (if valor-consistente                       ; se o elemento do dominio for consistente, passar a proxima variavel com uma chamada de procura-retrocesso-simples
+                 (progn
+                   (psr-adiciona-atribuicao! psr variavel valor)
+                   (multiple-value-bind (resultado maisTestes) (procura-retrocesso-grau psr)
+                     (setf testesTotais (+ testesTotais maisTestes))
+                     (if resultado (return (values resultado testesTotais))) ; se resultado nao for nil, sair do loop e devolver resultado
+                     (psr-remove-atribuicao! psr variavel))))))))))
 
 ;this way it works in whatever implementation
 #+clisp (load "exemplos.fas")
