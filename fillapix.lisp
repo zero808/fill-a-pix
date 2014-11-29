@@ -395,7 +395,16 @@
                      (if resultado (return (values resultado testesTotais)))
                      (psr-remove-atribuicao! psr variavel))))))))))
 
-;(defun resolve-simples (arr))
+(defun resolve-simples (arr)
+  (let ((psr nil)
+        (array-final nil)
+        (resultado nil)
+        (tamanho (array-dimensions arr)))
+   (setf psr (fill-a-pix->psr arr))
+   (setf resultado (procura-retrocesso-simples psr))
+   (if resultado (setf array-final (psr->fill-a-pix psr (first tamanho) (second tamanho))))
+   array-final))
+  
 
 
 ;this way it works in whatever implementation
