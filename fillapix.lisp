@@ -469,37 +469,41 @@
                    (progn
                      (psr-adiciona-atribuicao! psr variavel valor)
                      (multiple-value-bind (inferencias testes2) (forward-checking psr variavel)
-                     (incf testesTotais testes2)
-                       (if inferencias
-                           (progn
-                             (let ((dominios nil))
-                               (dolist (inf inferencias)
-                                 (setf dominios (cons (cria-inferencia (inferencia-var inf) (psr-variavel-dominio psr (inferencia-var inf))) dominios))
-                                 (psr-altera-dominio! psr (inferencia-var inf) (inferencia-dominio inf)))
-                               (multiple-value-bind (resultado testes3) (procura-retrocesso-fc-mrv psr)
-                                 (incf testesTotais testes3)
-                                 (if resultado
-                                     (return (values resultado testesTotais))))
-                               (dolist (inf dominios) ;; repor valores no dominio
-                                 (psr-altera-dominio! psr (inferencia-var inf) (inferencia-dominio inf)))))))
+                       (incf testesTotais testes2)
+                         (if inferencias
+                             (progn
+                               (let ((dominios nil))
+                                 (dolist (inf inferencias)
+                                   (setf dominios (cons (cria-inferencia (inferencia-var inf) (copy-list (psr-variavel-dominio psr (inferencia-var inf)))) dominios))
+                                   (psr-altera-dominio! psr (inferencia-var inf) (inferencia-dominio inf)))
+                                 (multiple-value-bind (resultado testes3) (procura-retrocesso-fc-mrv psr)
+                                   (incf testesTotais testes3)
+                                   (if resultado
+                                       (return (values resultado testesTotais))
+                                       (dolist (inf dominios) ;; repor valores no dominio
+				                    	   (psr-altera-dominio! psr (inferencia-var inf) (inferencia-dominio inf)))))))))
                      (psr-remove-atribuicao! psr variavel)))))))))
-                   
                      
                      
                      
 (defun arcos-vizinhos-nao-atribuidos (psr variavel)
   (let ((lista-arcos nil))
     (dolist (var-natribuida (psr-variaveis-nao-atribuidas psr))
-      if (null (equal variavel var-natribuida))
-         (progn (if (procura-restricoes-comuns  (psr-variavel-restricoes psr variavel) var-natribuida)
-                    (setf lista-arcos (nconc lista-arcos (list (cons var-natribuida variavel)))))))
+      (if (null (equal variavel var-natribuida))
+          (progn (if (procura-restricoes-comuns  (psr-variavel-restricoes psr variavel) var-natribuida)
+                     (setf lista-arcos (nconc lista-arcos (list (cons var-natribuida variavel))))))))
     lista-arcos))
-       
+
+(defun gera-lista-inferencias (psr lista-vars)
+  (let ((lista-resultado nil))
+    (dolist (var lista-vars)
+      (setf lista-resultado (cons (cria-inferencia var (copy-list (psr-variavel-dominio psr var))) lista-resultado)))
+   (nreverse lista-resultado)))
                     
 (defun forward-checking (psr variavel)
   (let ((testesTotais 0)
-        (inferenciasFinais nil)
-        (lista-arcos (arcos-vizinhos-nao-atribuidos psr variavel)))
+        (lista-arcos (arcos-vizinhos-nao-atribuidos psr variavel))
+        (inferenciasFinais (gera-lista-inferencias psr (psr-variaveis-todas psr))))
         
     (dolist (arco lista-arcos (values inferenciasFinais testesTotais)) ; return no fim de todos os ciclos
       (multiple-value-bind (revise-result testes inferencias) (revise psr (car arco) (cdr arco) inferenciasFinais)
