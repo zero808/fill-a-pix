@@ -481,7 +481,7 @@
                                    (if resultado
                                        (return (values resultado testesTotais))
                                        (dolist (inf dominios) ;; repor valores no dominio
-				                    	   (psr-altera-dominio! psr (inferencia-var inf) (inferencia-dominio inf)))))))))
+				                         (psr-altera-dominio! psr (inferencia-var inf) (inferencia-dominio inf)))))))))
                      (psr-remove-atribuicao! psr variavel)))))))))
                      
                      
@@ -545,7 +545,7 @@
         (if (null foundConsistentValue)
             (progn
               (setf revised t)
-              (delete vx novo-dominio-x)))))
+              (setf novo-dominio-x (remove vx novo-dominio-x))))))
     (if revised
         (setf lista-inferencias (adiciona-inferencia-lista (cria-inferencia x novo-dominio-x) lista-inferencias)))
    (values revised testesTotais lista-inferencias)))
