@@ -455,20 +455,38 @@
           (progn (setf variavel-resultado variavel) (setf dominio-variavel-resultado (length (psr-variavel-dominio psr variavel))))))
   variavel-resultado))
 
-;(defun procura-retrocesso-fc-mrv (psr)
-  ;(let ((testesTotais 0)
-       ;(variavel nil))
-     ;(if (psr-completo-p psr)
-         ;(values psr testesTotais)
-         ;(progn
-           ;(setf variavel (heuristica-mrv psr))
-           ;(dolist (valor (psr-variavel-dominio psr variavel) (values nil testesTotais))
-             ;(multiple-value-bind (valor-consistente testes) (psr-atribuicao-consistente-p psr variavel valor)
-               ;(setf testesTotais (+ testesTotais testes))
-               ;(if valor-consistentes
-                   ;(progn
-                     ;(psr-adiciona-atribuicao! psr variavel valor)
-                     ;(
+(defun procura-retrocesso-fc-mrv (psr)
+  (let ((testesTotais 0)
+       (variavel nil))
+     (if (psr-completo-p psr)
+         (values psr testesTotais)
+         (progn
+           (setf variavel (heuristica-mrv psr))
+           (dolist (valor (psr-variavel-dominio psr variavel) (values nil testesTotais)) ;; return final
+             (multiple-value-bind (valor-consistente testes) (psr-atribuicao-consistente-p psr variavel valor)
+               (setf testesTotais (+ testesTotais testes))
+               (if valor-consistente
+                   (progn
+                     (psr-adiciona-atribuicao! psr variavel valor)
+                     (multiple-value-bind (inferencias testes2) (forward-checking psr variavel)
+                     (incf testesTotais testes2)
+                       (if inferencias
+                           (progn
+                             (let ((dominios nil))
+                               (dolist (inf inferencias)
+                                 (setf dominios (cons (cria-inferencia (inferencia-var inf) (psr-variavel-dominio psr (inferencia-var inf))) dominios))
+                                 (psr-altera-dominio! psr (inferencia-var inf) (inferencia-dominio inf)))
+                               (multiple-value-bind (resultado testes3) (procura-retrocesso-fc-mrv psr)
+                                 (incf testesTotais testes3)
+                                 (if resultado
+                                     (return (values resultado testesTotais))))
+                               (dolist (inf dominios) ;; repor valores no dominio
+                                 (psr-altera-dominio! psr (inferencia-var inf) (inferencia-dominio inf)))))))
+                     (psr-remove-atribuicao! psr variavel)))))))))
+                   
+                     
+                     
+                     
 (defun arcos-vizinhos-nao-atribuidos (psr variavel)
   (let ((lista-arcos nil))
     (dolist (var-natribuida (psr-variaveis-nao-atribuidas psr))
@@ -478,30 +496,37 @@
     lista-arcos))
        
                     
-;(defun forward-checking (psr variavel)
-  ;(let ((testesTotais 0)
-        ;(inferencias nil)
-        ;(lista-arcos (arcos-vizinhos-nao-atribuidos psr variavel)))
+(defun forward-checking (psr variavel)
+  (let ((testesTotais 0)
+        (inferenciasFinais nil)
+        (lista-arcos (arcos-vizinhos-nao-atribuidos psr variavel)))
         
-    ;(dolist (arco lista-arcos)
+    (dolist (arco lista-arcos (values inferenciasFinais testesTotais)) ; return no fim de todos os ciclos
+      (multiple-value-bind (revise-result testes inferencias) (revise psr (car arco) (cdr arco) inferenciasFinais)
+        (incf testesTotais testes)
+	    (setf inferenciasFinais inferencias)
+        (if revise-result
+            (let ((dominio (inferencia-dominio (procura-variavel-inferencia-lista (car arco) inferencias))))
+              (if (null dominio)
+                  (return (values nil testesTotais)))))))))            
       
 (defun revise (psr x y inferencias)
   (let ((testesTotais 0)
          (revised nil)
          (dominio-x nil)     
-                        ;(psr-variavel-dominio psr x)) ;; falta ir buscar as inferencias
          (novo-dominio-x nil)
-         (dominio-y nil))
-    (multiple-value-bind (inferencia-x) (procura-variavel-inferencia-lista x inferencias)
+         (dominio-y nil)
+         (lista-inferencias inferencias))
+    (multiple-value-bind (inferencia-x) (procura-variavel-inferencia-lista x lista-inferencias)
        (if inferencia-x
            (setf dominio-x (inferencia-dominio inferencia-x))
            (setf dominio-x (psr-variavel-dominio psr x))))
     (setf novo-dominio-x dominio-x)
-    (multiple-value-bind (valor-y) (psr-variavel-valor y)
+    (multiple-value-bind (valor-y) (psr-variavel-valor psr y)
        (if valor-y
            (setf dominio-y (list valor-y))
            (progn
-             (multiple-value-bind (inferencia-y) (procura-variavel-inferencia-lista y inferencias)
+             (multiple-value-bind (inferencia-y) (procura-variavel-inferencia-lista y lista-inferencias)
                (if inferencia-y
                    (setf dominio-y (inferencia-dominio inferencia-y))
                    (setf dominio-y (psr-variavel-dominio psr y)))))))
@@ -513,29 +538,29 @@
                (if valor-consistente
                    (progn (setf foundConsistentValue t)
                           (return)))))
-        (if (null foundConsistenteValue)
+        (if (null foundConsistentValue)
             (progn
               (setf revised t)
-              (delete vx novo-dominio)))))
+              (delete vx novo-dominio-x)))))
     (if revised
-        ())
-   (values revised testesTotais)))
+        (setf lista-inferencias (adiciona-inferencia-lista (cria-inferencia x novo-dominio-x) lista-inferencias)))
+   (values revised testesTotais lista-inferencias)))
         
 ;; tipo inferencia
 (defun cria-inferencia (var dominio)
-  (cons var dominio))
+  (list var dominio))
 
 (defun inferencia-var (inferencia)
-  (car inferencia))
+  (first inferencia))
 
 (defun inferencia-dominio (inferencia)
-  (cdr inferencia))
+  (second inferencia))
   
 (defun inferencia-variavel-igual-p (inf1 inf2)
-  (equal (car inf1) (car inf2)))
+  (equal (first inf1) (first inf2)))
 
 (defun variavel-inferencia-p (var inf)
-  (equal var (car inf)))
+  (equal var (first inf)))
 
 (defun procura-variavel-inferencia-lista (var lista)
   (multiple-value-bind (n) (position var lista :test 'variavel-inferencia-p)
@@ -543,11 +568,14 @@
         (nth n lista)
         nil)))
 
+;; devolve lista, pode destruir lista passada
 (defun adiciona-inferencia-lista (inf lista)
   (let ((lista-resultado lista))
     (multiple-value-bind (posicao) (position inf lista :test 'inferencia-variavel-igual-p)
       (if posicao
-          (setf
+          (progn (setf (nth posicao lista-resultado) inf)
+                 lista-resultado)
+          (cons inf lista-resultado)))))
 
 ;this way it works in whatever implementation
 #+clisp (load "exemplos.fas")
