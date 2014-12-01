@@ -69,7 +69,7 @@
   (do ((counter 0 (1+ counter))
        (result t)
        (element nil)
-       (size (length restricoes)))
+       (size (list-length restricoes)))
     ((or (= size counter) (not result)) (values result counter))
     (progn
       (setf element (restricao-funcao-validacao (nth counter restricoes)))
@@ -130,20 +130,14 @@
 
 ; lista variaveis x lista dominios x lista restricoes -> PSR
 (defun cria-psr (lst-vars lst-dominios lst-restri)
-  (let (;(atribuidas nil) ;variaveis com valores atribuidos
-        ;(nao-atribuidas (copy-list lst-vars)) ;variaveis que ainda nao tem valores atribuidos
-        ;lista de todas as variaveis do problema
-        ;os dominios de cada variavel
+  (let (;os dominios de cada variavel
         (dominios lst-dominios)
         ;as restricoes do problema
         (restricoes lst-restri)
         ;valores de cada variavel
         (valores (make-hash-table :test 'equal))
         ;rede de restricoes
-        (rede (make-hash-table :test 'equal))
-        ;flag para comparacoes
-        ;(flag t)
-        )
+        (rede (make-hash-table :test 'equal)))
     (progn (preenche-ht-vars valores lst-vars)
            (preenche-ht-rede rede lst-restri))
     ;(lambda (x &optional var1 val1 var2 val2 arg arg2)
@@ -164,25 +158,18 @@
         ;retorna o valor atribuido a variavel
         (pvv (cdr (gethash arg1 valores)))
         ;troca o valor da variavel
-        ; (paa (multiple-value-bind (a b) (corrige-valores valores atribuidas nao-atribuidas arg1 arg2)
-        ;            (setf atribuidas a) (setf nao-atribuidas b)))
         (paa (adiciona-valor! valores arg1 arg2))
 ;               (if (or (not (null a)) (not (null b)))
 ;                 (progn
 ;                   (setf atribuidas a)
 ;                   (setf nao-atribuidas b)))))
         (pra (remove-valor! valores arg1))
-;               (if (or (not (null a)) (not (null b)))
-;                 (progn
-;                   (setf atribuidas a)
-;                   (setf nao-atribuidas b)))))
         ;verifica se algum valor de uma variavel esta a nil
         (comp (null (procura-nao-atribuidas lst-vars valores)))
         (consis (consistente restricoes arg1))
         (pvcp (consistente arg1 arg2))
         (pacp (testa-pacp arg1 arg2 arg3));var2 aqui sao as restricoes da variavel
-        (pacap (testa-pacap arg1 arg2 arg3 arg4 arg5 arg6))
-        ))))
+        (pacap (testa-pacap arg1 arg2 arg3 arg4 arg5 arg6))))))
 
 (defun psr-atribuicoes (psr)
   (funcall psr 'pa))
@@ -209,7 +196,6 @@
 
 (defun psr-remove-atribuicao! (psr var)
   (funcall psr 'pra var nil))
-  ; (funcall psr 'paa var nil))
 
 (defun psr-altera-dominio! (psr var dom)
   (let ((index (funcall psr 'dom-i var)))
@@ -226,17 +212,12 @@
     (funcall psr 'pvcp res psr)))
 
 (defun psr-atribuicao-consistente-p (psr variavel valor)
-;  (let ((res (psr-variavel-restricoes psr variavel)))
-;    (funcall psr 'pacp variavel valor res psr)))
     (funcall psr 'pacp psr variavel valor))
 
 (defun psr-atribuicoes-consistentes-arco-p (psr var1 val1 var2 val2)
-;  (funcall psr 'pacap var1 val1 var2 val2 (remove-duplicates
-;                                            (append (psr-variavel-restricoes psr var1)
-;                                                    (psr-variavel-restricoes psr var2))
-;                                            :test 'eq :from-end t) psr))
-(funcall psr 'pacap var1 val1 var2 val2 (procura-restricoes-comuns (psr-variavel-restricoes psr var1)
-                                                                   var2) psr))
+  (funcall psr 'pacap var1 val1 var2 val2
+           (procura-restricoes-comuns (psr-variavel-restricoes psr var1)
+                                       var2) psr))
 
 
 ; recebe a posicao num array de (n * m) e identifica o seu numero de posicao entre 0 a ((n * m) - 1)
@@ -300,41 +281,47 @@
       (push (write-to-string (identifica-numero-variavel (car elemento) (cdr elemento) tamanho)) lista-variaveis))
     (setf lista-variaveis (nreverse lista-variaveis))
     (cond
-        ((= (length lista-variaveis) 9) (setf predicado #'(lambda (psr) (let ((el0 (psr-variavel-valor psr (nth 0 lista-variaveis)))
-                                                                              (el1 (psr-variavel-valor psr (nth 1 lista-variaveis)))
-                                                                              (el2 (psr-variavel-valor psr (nth 2 lista-variaveis)))
-                                                                              (el3 (psr-variavel-valor psr (nth 3 lista-variaveis)))                                                                                           
-                                                                              (el4 (psr-variavel-valor psr (nth 4 lista-variaveis)))
-                                                                              (el5 (psr-variavel-valor psr (nth 5 lista-variaveis)))
-                                                                              (el6 (psr-variavel-valor psr (nth 6 lista-variaveis)))
-                                                                              (el7 (psr-variavel-valor psr (nth 7 lista-variaveis)))
-                                                                              (el8 (psr-variavel-valor psr (nth 8 lista-variaveis))))
+        ((= (list-length lista-variaveis) 9) (setf predicado #'(lambda (psr) (let* ((el0 (psr-variavel-valor psr (nth 0 lista-variaveis)))
+                                                                               (el1 (psr-variavel-valor psr (nth 1 lista-variaveis)))
+                                                                               (el2 (psr-variavel-valor psr (nth 2 lista-variaveis)))
+                                                                               (el3 (psr-variavel-valor psr (nth 3 lista-variaveis)))                                                                                           
+                                                                               (el4 (psr-variavel-valor psr (nth 4 lista-variaveis)))
+                                                                               (el5 (psr-variavel-valor psr (nth 5 lista-variaveis)))
+                                                                               (el6 (psr-variavel-valor psr (nth 6 lista-variaveis)))
+                                                                               (el7 (psr-variavel-valor psr (nth 7 lista-variaveis)))
+                                                                               (el8 (psr-variavel-valor psr (nth 8 lista-variaveis)))
+                                                                               (lista-elementos (list el0 el1 el2 el3 el4 el5 el6 el7 el8)))
                                                                                   ;; alguma outra maneira de fazer isto?
                                                                                   
                                                                            ;; se o numero de 0s nas variaveis tem de ser inferior ou igual a 9 - valor
                                                                            ;; se nao, mesmo que algumas variaveis nao estejam atribuidas
                                                                            ;; e' possivel inferir que este predicado nao e' verdade.   
-                                                                          (if (> (count 0 (list el0 el1 el2 el3 el4 el5 el6 el7 el8)) (- 9 valor))
+                                                                          (if (or (> (count 0 lista-elementos) (- 9 valor))
+                                                                                   (> (count 1 lista-elementos) valor))
                                                                               nil
                                                                               (if (and el0 el1 el2 el3 el4 el5 el6 el7 el8) (= (+ el0 el1 el2 el3 el4 el5 el6 el7 el8) valor) T))))))
                                                                               
-        ((= (length lista-variaveis) 6) (setf predicado #'(lambda (psr) (let ((el0 (psr-variavel-valor psr (nth 0 lista-variaveis)))
-                                                                                 (el1 (psr-variavel-valor psr (nth 1 lista-variaveis)))
-                                                                                 (el2 (psr-variavel-valor psr (nth 2 lista-variaveis)))
-                                                                                 (el3 (psr-variavel-valor psr (nth 3 lista-variaveis)))                                                                                           
-                                                                                 (el4 (psr-variavel-valor psr (nth 4 lista-variaveis)))
-                                                                                 (el5 (psr-variavel-valor psr (nth 5 lista-variaveis))))
-                                                                             (if (> (count 0 (list el0 el1 el2 el3 el4 el5)) (- 6 valor))
-                                                                                 nil
-                                                                                 (if (and el0 el1 el2 el3 el4 el5) (= (+ el0 el1 el2 el3 el4 el5) valor) T))))))
+        ((= (list-length lista-variaveis) 6) (setf predicado #'(lambda (psr) (let* ((el0 (psr-variavel-valor psr (nth 0 lista-variaveis)))
+                                                                               (el1 (psr-variavel-valor psr (nth 1 lista-variaveis)))
+                                                                               (el2 (psr-variavel-valor psr (nth 2 lista-variaveis)))
+                                                                               (el3 (psr-variavel-valor psr (nth 3 lista-variaveis)))                                                                                           
+                                                                               (el4 (psr-variavel-valor psr (nth 4 lista-variaveis)))
+                                                                               (el5 (psr-variavel-valor psr (nth 5 lista-variaveis)))
+                                                                               (lista-elementos (list el0 el1 el2 el3 el4 el5)))
+                                                                          (if (or (> (count 0 lista-elementos) (- 6 valor))
+                                                                                   (> (count 1 lista-elementos) valor))
+                                                                              nil
+                                                                             (if (and el0 el1 el2 el3 el4 el5) (= (+ el0 el1 el2 el3 el4 el5) valor) T))))))
         
-        ((= (length lista-variaveis) 4) (setf predicado #'(lambda (psr) (let ((el0 (psr-variavel-valor psr (nth 0 lista-variaveis)))
-                                                                              (el1 (psr-variavel-valor psr (nth 1 lista-variaveis)))
-                                                                              (el2 (psr-variavel-valor psr (nth 2 lista-variaveis)))
-                                                                              (el3 (psr-variavel-valor psr (nth 3 lista-variaveis))))                                                                                           
-                                                                           (if (> (count 0 (list el0 el1 el2 el3)) (- 4 valor))
-                                                                               nil
-																		       (if (and el0 el1 el2 el3) (= (+ el0 el1 el2 el3) valor) T)))))))
+        ((= (list-length lista-variaveis) 4) (setf predicado #'(lambda (psr) (let* ((el0 (psr-variavel-valor psr (nth 0 lista-variaveis)))
+                                                                               (el1 (psr-variavel-valor psr (nth 1 lista-variaveis)))
+                                                                               (el2 (psr-variavel-valor psr (nth 2 lista-variaveis)))
+                                                                               (el3 (psr-variavel-valor psr (nth 3 lista-variaveis)))
+                                                                               (lista-elementos (list el0 el1 el2 el3)))                                                                                           
+                                                                          (if (or (> (count 0 lista-elementos) (- 4 valor))
+                                                                                   (> (count 1 lista-elementos) valor))
+                                                                              nil
+																		      (if (and el0 el1 el2 el3) (= (+ el0 el1 el2 el3) valor) T)))))))
      (cria-restricao lista-variaveis predicado)))
 
 (defun cria-dominio-restricao (array)
@@ -413,8 +400,8 @@
 (defun heuristica-grau (psr)
   (let ((variavel-resultado nil)
         (variavel-resultado-grau -1)
-        (variaveis (psr-variaveis-nao-atribuidas psr))); para evitar erros quando a lista de restricoes comuns tem length 0
-    (if (= (length variaveis) 1)
+        (variaveis (psr-variaveis-nao-atribuidas psr))); para evitar erros quando a lista de restricoes comuns tem list-length 0
+    (if (= (list-length variaveis) 1)
         (setf variavel-resultado (first variaveis))
         (progn
           (dolist (variavel variaveis)
@@ -424,8 +411,8 @@
                 (if (not (equal variavel2 variavel))
                     (setf lista-restricoes-comuns (append lista-restricoes-comuns (procura-restricoes-comuns variavel-restricoes variavel2))))) ; procura restricoes comuns com outras variaves nao atribuidas
               (setf lista-restricoes-comuns (remove-duplicates lista-restricoes-comuns :test 'eq)) ;; no final de ter todas as restricoes comuns com as outras variaveis, remove todos os elementos repetidos
-              (if (> (length lista-restricoes-comuns) variavel-resultado-grau)                     ;; se for um elemento com mais restricoes do que os previamente testados
-                  (progn (setf variavel-resultado variavel) (setf variavel-resultado-grau (length lista-restricoes-comuns)))))))) ;; guardar variavel e grau da variavel
+              (if (> (list-length lista-restricoes-comuns) variavel-resultado-grau)                     ;; se for um elemento com mais restricoes do que os previamente testados
+                  (progn (setf variavel-resultado variavel) (setf variavel-resultado-grau (list-length lista-restricoes-comuns)))))))) ;; guardar variavel e grau da variavel
    variavel-resultado))
    
 (defun procura-retrocesso-grau (psr)
@@ -449,13 +436,19 @@
 (defun heuristica-mrv (psr)
   (let* ((variaveis (psr-variaveis-nao-atribuidas psr))
          (variavel-resultado (first variaveis))
-         (dominio-variavel-resultado (length (psr-variavel-dominio psr variavel-resultado))))
+         (dominio-variavel-resultado (list-length (psr-variavel-dominio psr variavel-resultado))))
     (dolist (variavel (rest variaveis))
-      (if (< (length (psr-variavel-dominio psr variavel)) dominio-variavel-resultado)
-          (progn (setf variavel-resultado variavel) (setf dominio-variavel-resultado (length (psr-variavel-dominio psr variavel))))))
+      (if (< (list-length (psr-variavel-dominio psr variavel)) dominio-variavel-resultado)
+          (progn (setf variavel-resultado variavel) (setf dominio-variavel-resultado (list-length (psr-variavel-dominio psr variavel))))))
   variavel-resultado))
 
 (defun procura-retrocesso-fc-mrv (psr)
+  (procura-retrocesso-mrv psr #'forward-checking))
+
+(defun procura-retrocesso-mac-mrv (psr)
+  (procura-retrocesso-mrv psr #'mac))
+
+(defun procura-retrocesso-mrv (psr alg)
   (let ((testesTotais 0)
        (variavel nil))
      (if (psr-completo-p psr)
@@ -468,7 +461,7 @@
                (if valor-consistente
                    (progn
                      (psr-adiciona-atribuicao! psr variavel valor)
-                     (multiple-value-bind (inferencias testes2) (forward-checking psr variavel)
+                     (multiple-value-bind (inferencias testes2) (funcall alg psr variavel)
                        (incf testesTotais testes2)
                          (if inferencias
                              (progn
@@ -481,7 +474,7 @@
                                    (if resultado
                                        (return (values resultado testesTotais))
                                        (dolist (inf dominios) ;; repor valores no dominio
-				                         (psr-altera-dominio! psr (inferencia-var inf) (inferencia-dominio inf)))))))))
+                                         (psr-altera-dominio! psr (inferencia-var inf) (inferencia-dominio inf)))))))))
                      (psr-remove-atribuicao! psr variavel)))))))))
                      
                      
@@ -497,27 +490,46 @@
 (defun gera-lista-inferencias (psr lista-vars)
   (let ((lista-resultado nil))
     (dolist (var lista-vars)
-      (setf lista-resultado (cons (cria-inferencia var (copy-list (psr-variavel-dominio psr var))) lista-resultado)))
+      (setf lista-resultado (cons (cria-inferencia var (psr-variavel-dominio psr var)) lista-resultado)))
    (nreverse lista-resultado)))
-                    
+
 (defun forward-checking (psr variavel)
   (let ((testesTotais 0)
         (lista-arcos (arcos-vizinhos-nao-atribuidos psr variavel))
         (inferenciasFinais (gera-lista-inferencias psr (psr-variaveis-todas psr))))
-        
+
     (dolist (arco lista-arcos (values inferenciasFinais testesTotais)) ; return no fim de todos os ciclos
       (multiple-value-bind (revise-result testes inferencias) (revise psr (car arco) (cdr arco) inferenciasFinais)
         (incf testesTotais testes)
-	    (setf inferenciasFinais inferencias)
+            (setf inferenciasFinais inferencias)
         (if revise-result
-            (let ((dominio (inferencia-dominio (procura-variavel-inferencia-lista (car arco) inferencias))))
+            (let ((dominio (inferencia-dominio (procura-variavel-inferencia-lista (car arco) inferenciasFinais))))
               (if (null dominio)
-                  (return (values nil testesTotais)))))))))            
-      
+                  (return (values nil testesTotais)))))))))
+
+(defun mac (psr variavel)
+  (let ((testesTotais 0)
+        (lista-arcos (arcos-vizinhos-nao-atribuidos psr variavel))
+        (inferenciasFinais (gera-lista-inferencias psr (psr-variaveis-todas psr))))
+
+    (dolist (arco lista-arcos (values inferenciasFinais testesTotais)) ; return no fim de todos os ciclos
+      (multiple-value-bind (revise-result testes inferencias) (revise psr (car arco) (cdr arco) inferenciasFinais)
+        (incf testesTotais testes)
+        (setf inferenciasFinais inferencias)
+        (if revise-result
+          (let ((dominio (inferencia-dominio (procura-variavel-inferencia-lista (car arco) inferencias)))
+                (novos-arcos nil));adicionei esta variavel
+            (if (null dominio)
+              (return (values nil testesTotais)))
+            ;e esta parte que difere do FC
+            (setf novos-arcos (arcos-vizinhos-nao-atribuidos psr (car arco)))
+            (setf novos-arcos (delete arco novos-arcos :test 'equal))
+            (nconc lista-arcos novos-arcos)))))))
+
 (defun revise (psr x y inferencias)
   (let ((testesTotais 0)
          (revised nil)
-         (dominio-x nil)     
+         (dominio-x nil)
          (novo-dominio-x nil)
          (dominio-y nil)
          (lista-inferencias inferencias))
@@ -525,7 +537,7 @@
        (if inferencia-x
            (setf dominio-x (inferencia-dominio inferencia-x))
            (setf dominio-x (psr-variavel-dominio psr x))))
-    (setf novo-dominio-x dominio-x)
+    (setf novo-dominio-x (copy-list dominio-x))
     (multiple-value-bind (valor-y) (psr-variavel-valor psr y)
        (if valor-y
            (setf dominio-y (list valor-y))
@@ -549,7 +561,17 @@
     (if revised
         (setf lista-inferencias (adiciona-inferencia-lista (cria-inferencia x novo-dominio-x) lista-inferencias)))
    (values revised testesTotais lista-inferencias)))
-        
+
+(defun resolve-best (arr)
+  (let ((psr nil)
+        (array-final nil)
+        (resultado nil)
+        (tamanho (array-dimensions arr)))
+   (setf psr (fill-a-pix->psr arr))
+   (setf resultado (procura-retrocesso-mac-mrv psr))
+   (if resultado (setf array-final (psr->fill-a-pix psr (first tamanho) (second tamanho))))
+   array-final))
+
 ;; tipo inferencia
 (defun cria-inferencia (var dominio)
   (list var dominio))
